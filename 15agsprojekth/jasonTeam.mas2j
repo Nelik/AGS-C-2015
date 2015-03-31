@@ -1,0 +1,106 @@
+/* 
+ * AGS project (based on gold-miners example)
+ */
+
+MAS miners {
+    infrastructure: Centralised
+	
+    environment: mining.MiningPlanet(1,100,yes)
+        // parameters: 1. environment configuration id (from 1 to 6)
+        //             2. sleep time (in ms) after each action
+        //             3. whether display the gui
+	    
+	agents:
+		aSlow teamCSlow;
+		aMiddle teamCMiddle;
+		aFast teamCFast;
+		bSlow teamySlow;
+		bMiddle teamyMiddle;
+		bFast teamyFast;
+}
+
+/* =============================================================================
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ !!! Docela to funguje jen je problem u agenta aFast, kteremu se nechteji
+ !!! zpracovavat udalosti. Problem je nekde v hlavni smycce vykonavanim 
+ !!! jednotlivych kroku. Opravim co nejdrive.
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ 
+ TODO:
+  - MOMENTALNE MA KAZDY AGENT STEJNE CHOVANI TZN. KOD JE 3X ROZKOPIROVANY
+    POKUD NEKDO VI JAK NASDILET CHOVANI PRES JEDEN SOUBORU SEM S TIM.
+  - pick zatim nefunguje
+  - u odesilani informaci o okoli ostatnim agentum jsou na prevno nastaveni
+    cilovy agenti. Melo by jit si ostatni agenty vytahnout z baze znalosti
+    pres friend(_), ale nevim jak ziskat oba zaznamy.
+  - scout vice agentu moc nefunguje, protoze vsichni vyberou stejny cil, takze
+    jdou na stejne misto
+  - pri scoutu se nebere v uvahu dohled tj. neni treba chodit tak daleko, kdyz
+    tam stejne dohledne
+
+ Kosmeticke:
+  - prejmenovat "!work"?
+  - prejmenovat "res(_,_,_)" (resouce)? na material?
+  - prejmenovat "discover"? na reveal?
+  - nekdy u posledni akce pisi "+!akce : true <- !neco"; ": true" je zbytecne,
+    mozna odstranit (ale lepe to vypada pri zarovnani)
+  - psat !akce(X,Y,Z) nebo !akce(X, Y, Z)?
+  
+
+========================= PROTOKOL CILU/ZAMERU/PLANU ===========================
+
+ Typy zameru/cilu (jak jsou ulozeny v bazi predstav):
+    intention(scout)     // Pruzkum neprozkoumanych bunek
+    intention(goTo,X,Y)  // Jdi na misto [X,Y]
+    intention(pick,X,Y)  // Zvedni surovinu na [X,Y] !!! ZATIM NEFUNGUJE !!! JEN NASTIN
+    intention(unload)    // Jdi k depu a vyloz vsechny suroviny
+    intention(idle)      // Nic nedelej
+
+ Zpusob zadani/zmeny zameru/cile agenta:
+    .send(aFast, achieve, intentionScout);
+    .send(aFast, achieve, intentionGoTo(X,Y));
+    .send(aFast, achieve, intentionPick(X,Y));
+    .send(aFast, achieve, intentionUnload);
+    .send(aFast, achieve, intentionIdle);
+
+ Typy zaznamu v bazi znalosti (bez zameru):
+    unknown(X,Y) - neprozkoumana bunka na pozici [X,Y]
+    res(R,X,Y)   - R=gold|wood; zlato/drevo na pozici [X,Y]
+    obs(X,Y)     - prekazka na pozici [X,Y]
+
+
+=============================== KOPIE ZE ZADANI ================================
+Agent	Pohybove body	Kapacita	Rozhled
+aSlow	1				1			3
+aMiddle	2				4			1
+aFast	3				2			1
+
+Nazev				Argumenty		Vyznam
+carrying capacity	int x			Agent ma moznost nest maximalne x surovin.
+carrying gold		int x			Agent prave nese x zlata.
+carrying wood		int x			Agent prave nese x dreva.
+obstacle			int x, int y	Na pozici y je prekazka.
+gold				int x, int y	Na pozici y je zlato.
+wood				int x, int y	Na pozici y je drevo.
+enemy				int x, int y	Na pozici y je nepritel.
+ally				int x, int y	Na pozici y je pritel.
+depot				int x, int y	Zlato se nose na pozici y.
+friend				string A		Mym prtelem je agent A.
+grid size			int x, int y	Prostredi ma rozmery x na y.
+moves left			int x			Agentu zbyva x pohybu v tomto kole.
+moves per round		int x			Tento typ agenta ma x pohybu na kolo.
+pos					int x, int y	Pozice agenta je y.
+step				int x			Nachazime se v x-tem kole.
+
+Nazev				Argumenty		Cena(PB)	Vyznam
+do(up)								1			Presune agenta nahoru.
+do(down)							1			Presune agenta dolu.
+do(left)							1			Presune agenta doleva.
+do(right)							1			Presune agenta doprava.
+do(skip)							1			Prazdna akce.
+do(pick)							max (1,2,3)	Z aktualne pozice vezme surovinu (pokud zde je surovina a alespon jeden sprateleny agent).
+do(drop)							max (1,2,3)	Na aktualne pozici (musi byt depot) polozi suroviny.
+do(transfer, A, N)	string A, int N	max (1,2,3)	Od A prevezme N pocet stejneho typu
+
+*/
+
