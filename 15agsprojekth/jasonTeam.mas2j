@@ -20,12 +20,7 @@ MAS miners {
 }
 
 /* =============================================================================
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- !!! Docela to funguje jen je problem u agenta aFast, kteremu se nechteji
- !!! zpracovavat udalosti. Problem je nekde v hlavni smycce vykonavanim 
- !!! jednotlivych kroku. Opravim co nejdrive.
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- 
+
  TODO:
   - MOMENTALNE MA KAZDY AGENT STEJNE CHOVANI TZN. KOD JE 3X ROZKOPIROVANY
     POKUD NEKDO VI JAK NASDILET CHOVANI PRES JEDEN SOUBORU SEM S TIM.
@@ -40,13 +35,12 @@ MAS miners {
 
  Kosmeticke:
   - prejmenovat "!work"?
-  - prejmenovat "res(_,_,_)" (resouce)? na material?
+  - prejmenovat "intention"?
   - prejmenovat "discover"? na reveal?
   - nekdy u posledni akce pisi "+!akce : true <- !neco"; ": true" je zbytecne,
     mozna odstranit (ale lepe to vypada pri zarovnani)
   - psat !akce(X,Y,Z) nebo !akce(X, Y, Z)?
   
-
 ========================= PROTOKOL CILU/ZAMERU/PLANU ===========================
 
  Typy zameru/cilu (jak jsou ulozeny v bazi predstav):
@@ -64,17 +58,14 @@ MAS miners {
     .send(aFast, achieve, intentionIdle);
 
  Typy zaznamu v bazi znalosti (bez zameru):
-    unknown(X,Y) - neprozkoumana bunka na pozici [X,Y]
-    res(R,X,Y)   - R=gold|wood; zlato/drevo na pozici [X,Y]
-    obs(X,Y)     - prekazka na pozici [X,Y]
-
+    obj(O,X,Y) - na pozici [X,Y] se nachazi objekt O=gold|wood|obsticle
 
 =============================== KOPIE ZE ZADANI ================================
 Agent	Pohybove body	Kapacita	Rozhled
 aSlow	1				1			3
 aMiddle	2				4			1
 aFast	3				2			1
-
+--------------------------------------------------------------------------------
 Nazev				Argumenty		Vyznam
 carrying capacity	int x			Agent ma moznost nest maximalne x surovin.
 carrying gold		int x			Agent prave nese x zlata.
@@ -91,7 +82,7 @@ moves left			int x			Agentu zbyva x pohybu v tomto kole.
 moves per round		int x			Tento typ agenta ma x pohybu na kolo.
 pos					int x, int y	Pozice agenta je y.
 step				int x			Nachazime se v x-tem kole.
-
+--------------------------------------------------------------------------------
 Nazev				Argumenty		Cena(PB)	Vyznam
 do(up)								1			Presune agenta nahoru.
 do(down)							1			Presune agenta dolu.
