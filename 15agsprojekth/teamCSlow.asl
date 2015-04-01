@@ -1,12 +1,16 @@
 // !!! Pri kopirovani celeho kodu do jinych agentu je potreba prepsat:       !!!
-// !!!  1) pocet kroku v +step(X)                                            !!!
-// !!!  2) jmena cilovych agentu v odesilani informaci v sendObjectInfo      !!!
-// !!!     a sendDiscoverInfo                                                !!!
-// !!!  3) pocatecni znalosti range(X)                                       !!!
+// !!!  1) spratelene agenty v pocatecni znalosti friendA(), friendB()       !!!
+// !!!  2) pocatecni znalosti range(X)                                       !!!
+// !!!  3) commander agent obsahuje akce pro zadavani prikazu                !!!
 /* =========================== POCATECNY ZNALOSTI =========================== */
 
 range(3). // Ulozeni vzdalenosti, protoze implicitne neni ulozena.
+friendA(aFast). // Sprateleni agenti, kterym se budou odesilat informace o okoli
+friendB(aMiddle).
 
+commander(aSlow).
+
+// Agent nic nedela, ale aSlow mu na zacatku posle prikaz scout.
 intention(scout). // Pocatecni zamer
 
 /* ============================== INICIALIZACE ============================== */
@@ -17,7 +21,7 @@ intention(scout). // Pocatecni zamer
     !onDepotInit;
     !initUnknown;
     !lookAround;
-    .send(aFast, achieve, intentionScout);
+    .send(aFast, achieve, intentionScout); // Ukazkove zadani prikazu
     .send(aMiddle, achieve, intentionScout).
 
 // Inicializace nenavstivenych bunek
@@ -37,74 +41,86 @@ intention(scout). // Pocatecni zamer
 +!onDepotInit : true                                            <- -onDepot(_); +onDepot(false).
 
 /* =========================== KONEC INICIALIZACE =========================== */
++step(X) <- +subStepDone(x).
 
-// Byl pokus (pod komentarem) o takovouto smycku pri ktere by se v krocich 
-// nemuselo kontrolovat zda se se neco provedlo (do(_)), ale "!doStep" by 
-// se volal dokud by move_left(X) bylo vetsi jak 0. Nicmene to nefunguje
-// (nefunguje nize popsana smycka).
-//
-// Bez atomic se provadi prilis mnoho kroku (vsechny akce se totiz nejspis 
-// vykonavaji zaraz tj. "!lookAround; !doStep; !work." se spusti paralelne 
-// (!work znovu spusti "!lookAround; !doStep;", takze se nekolikrat spusti 
-// "!doStep" bez ohledu na moves_left). Jak je to ted s @w1[atomic] to castecne
-// funguje, ale problem je v agentovy aFast (asi i ostatnich jen se to 
-// neprojevuje), ze nezpracovava udalosti. 
-//
-// Pokud nekdo vi jak udelat tu smycku, aby se v krokich nemuselo kontrolovat
-// zda se neco udela at napise.
-/*
-+step(X) <- !work.
-@w1[atomic] +!work : moves_left(0).
-@w2[atomic] +!work <- 
-    !lookAround; 
-    !doStep; 
-    !work.
-*/
-
-// Pri takto pevnem poctu kroku, jen nutne v kazdem kroku neco udelat jinak
-// se program zasekne resp. se ceka az agent vycerpa svoje pohyby, coz se ale 
-// nikdy nestane. Pozor: to byva pricina zastaveni vsech agentu.
-+step(X) <- !doMacroStep.
+// Zkousel jsem ruzna zpracovani hlavni smycky a tahle jedina mi funguje.
+// Dokud ma agent pohybove body tak bude neco delat.
++subStepDone(x) : moves_left(0) <- -subStepDone(x).
++subStepDone(x) : true          <- -subStepDone(x); !doMacroStep; +subStepDone(x).
 
 // Macro, protoze doStep uz byl a potrebuju k nemu pribalit !lookAround.
-+!doMacroStep <- !lookAround; !doStep.
+@macroStep[atomic] +!doMacroStep <- !lookAround; !giveCommands; !doIntention.
 
 // Provadeni akci na zaklade aktualniho zameru
-+!doStep : intention(scout)    <- !scout.
-+!doStep : intention(goTo,X,Y) <- !goTo(X,Y).
-+!doStep : intention(pick,X,Y) <- !pick(X,Y). // !!! ZATIM JEN NASTIN !!!
-+!doStep : intention(unload)   <- !unload.
-+!doStep : intention(idle)     <- do(skip).
-+!doStep : true                <- !chooseNextIntention.
++!doIntention : intention(scout)    <- !scout.
++!doIntention : intention(goTo,X,Y) <- !goTo(X,Y).
++!doIntention : intention(pick,X,Y) <- !pick(X,Y). // !!! ZATIM JEN NASTIN !!!
++!doIntention : intention(unload)   <- !unload.
++!doIntention : intention(idle)     <- do(skip).
++!doIntention : true                <- !chooseNextIntention.
 
-//? V budoucnu by tu mohlo byt rozhodnuti na uplnem pocatku.
-+!chooseNextIntention <- +intention(idle); !doStep.
++!chooseNextIntention : unknown(X,Y) <- +intention(scout). // Kdyz nic, tak scout
++!chooseNextIntention : true         <- +intention(idle);.print("idle").
+
+
+/* ============================= DAVANI PRIKAZU ============================= */
+
+// Tuhle akci agenti volaji az dokonci aktualni ukol.
++!commandDone(Agent) <- -pendingCommand(Agent).
+        
+// Velice jednoduche davani prikazu. Agent ceka dokud vsichni agenti splnili
+// svuj ukol a pote jim zada co maji jit zvednout (verze davani prikazu hned
+// jak ukol dokonci nefunguje, protoze se muze stat ze agenty posle na ruzna
+// mista).
++!giveCommands : pendingCommand(_). 
++!giveCommands : obj(wood,X,Y) & friendA(AgentA) & friendB(AgentB) <- // Vime o nejakem dreve
+    .send(AgentA, achieve, intentionPick(X,Y)); 
+    .send(AgentB, achieve, intentionPick(X,Y));
+    +pendingCommand(AgentA);
+    +pendingCommand(AgentB);
+    !giveCommands.
++!giveCommands : obj(gold,X,Y) & friendA(AgentA) & friendB(AgentB) <- // Vime o nejakem zlate
+    .send(AgentA, achieve, intentionPick(X,Y)); 
+    .send(AgentB, achieve, intentionPick(X,Y));
+    +pendingCommand(AgentA);
+    +pendingCommand(AgentB);
+    !giveCommands.
++!giveCommands.
+
 
 /* ========================== IMPLEMENTACE PRIKAZU ========================== */
 
 // Agent pujde k prvni neprozkoumane bunce, kterou vytahne z baze znalosti.
-+!scout : unknown(X,Y) <- !moveTo(X,Y). // Porad existuji neprozkoumane bunky
-+!scout : true         <- -intention(scout); !doStep.// Vsechny bunky byly prozkoumany
++!scout : unknown(X,Y) <- !moveTo(X,Y).     // Porad existuji neprozkoumane bunky
++!scout : true         <- -intention(scout).// Vsechny bunky byly prozkoumany
 
 // Prikaz k presunu na pozici [X,Y]
-+!goTo(X,Y) : pos(X,Y) <- -intention(goTo,X,Y); !doStep. // Uz jsme na miste
-+!goTo(X,Y) : true     <- !moveTo(X,Y). // Porad tam nejsme
++!goTo(X,Y) : pos(X,Y) <- -intention(goTo,X,Y). // Uz jsme na miste
++!goTo(X,Y) : true     <- !moveTo(X,Y).         // Porad tam nejsme
 
-// Zvednuti zdroje ze zeme
-+!pick(X,Y) : pos(X,Y) <- do(pick); -intention(pick,X,Y). // !!! ZATIM JEN NASTIN !!!
+// Zvednuti zdroje ze zeme (agent musi mit plny pocet pohybovych bodu).
++!pick(X,Y) : pos(X,Y) & ally(X,Y) & moves_left(ML) & moves_per_round(ML) <- 
+    do(pick); 
+    -intention(pick,X,Y); 
+    +intention(unload).
++!pick(X,Y) : pos(X,Y) <- do(skip). // Cekani na jineho agenta
 +!pick(X,Y) : true     <- !moveTo(X,Y).
 
-// Vyprazdneni agenta
-+!unload : onDepot(true)  <- do(drop); -intention(unload).
+// Vyprazdneni agenta (agent musi mit plny pocet pohybovych bodu).
++!unload : onDepot(true) & moves_left(ML) & moves_per_round(ML) & commander(C) & .my_name(MN) <- 
+    do(drop); 
+    -intention(unload);
+    .send(C, achieve, commandDone(MN)).
++!unload : onDepot(true)  <- do(skip).
 +!unload : onDepot(false) <- !moveToDepot.
 
 /* ============================ PRIJMUTI PRIKAZU ============================ */
 
-+!intentionScout     <- !clearIntention; +intention(scout).
-+!intentionGoTo(X,Y) <- !clearIntention; +intention(goTo,X,Y).
-+!intentionPick(X,Y) <- !clearIntention; +intention(pick,X,Y).
-+!intentionUnload    <- !clearIntention; +intention(unload).
-+!intentionIdle      <- !clearIntention; +intention(idle).
+@intScout[atomic]  +!intentionScout     <- !clearIntention; +intention(scout).
+@intGoTo[atomic]   +!intentionGoTo(X,Y) <- !clearIntention; +intention(goTo,X,Y).
+@intPick[atomic]   +!intentionPick(X,Y) <- !clearIntention; +intention(pick,X,Y).
+@intUnload[atomic] +!intentionUnload    <- !clearIntention; +intention(unload).
+@intIdle[atomic]   +!intentionIdle      <- !clearIntention; +intention(idle).
 
 // Odstraneni aktualniho zameru
 // !!! Pokud pribudou nove zamery s vetsi aritou je treba dopsat !!!
@@ -156,15 +172,13 @@ intention(scout). // Pocatecni zamer
 
 /* ============= AKCE PRO ODESLANI/PRIJMUNI INFOMACI O PROSTORU ============= */
 
-//? Prepsat cilove agenty u ostatni agentu. Asi to pujde ejak pres friend(X), 
-//  ale nevim jak vytahnout oboje hodnoty z baze znalosti
-+!sendDiscoverInfo(X,Y) <- 
-    .send(aFast,   achieve, recvDiscoverInfo(X,Y));
-    .send(aMiddle, achieve, recvDiscoverInfo(X,Y)).
++!sendDiscoverInfo(X,Y) : friendA(FA) & friendB(FB) <- 
+    .send(FA, achieve, recvDiscoverInfo(X,Y));
+    .send(FB, achieve, recvDiscoverInfo(X,Y)).
 
-+!sendObjectInfo(O,X,Y,AddRemove) <-
-    .send(aFast,   achieve, recvObjectInfo(O,X,Y,AddRemove));
-    .send(aMiddle, achieve, recvObjectInfo(O,X,Y,AddRemove)).
++!sendObjectInfo(O,X,Y,AddRemove) : friendA(FA) & friendB(FB) <- 
+    .send(FA, achieve, recvObjectInfo(O,X,Y,AddRemove));
+    .send(FB, achieve, recvObjectInfo(O,X,Y,AddRemove)).
 
 +!recvDiscoverInfo(X,Y) <- -unknown(X,Y).
 
@@ -182,5 +196,5 @@ intention(scout). // Pocatecni zamer
 +!moveTo(PosX,PosY,TarX,TarY) : PosX > TarX <- do(left); !onDepotInit.
 +!moveTo(PosX,PosY,TarX,TarY) : PosY < TarY <- do(down); !onDepotInit.
 +!moveTo(PosX,PosY,TarX,TarY) : PosY > TarY <- do(up); !onDepotInit.
-+!moveTo(PosX,PosY,TarX,TarY) <- !doStep. // Uz jsem na miste: PosX == TarX & PosY == TarY
++!moveTo(PosX,PosY,TarX,TarY). // Uz jsem na miste: PosX == TarX & PosY == TarY
 

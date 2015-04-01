@@ -22,15 +22,14 @@ MAS miners {
 /* =============================================================================
 
  TODO:
+  - Ihned po zvednuti jednoho zdroje jej agenti odnasi do depa
+  - Po odevzdani vsech zdroji to crashne, ale to asi nebude nase chyba.
+  - Nekdy se stane, ze jenom jeden agent zvedne zdroj ze zeme.
   - MOMENTALNE MA KAZDY AGENT STEJNE CHOVANI TZN. KOD JE 3X ROZKOPIROVANY
     POKUD NEKDO VI JAK NASDILET CHOVANI PRES JEDEN SOUBORU SEM S TIM.
-  - pick zatim nefunguje
-  - u odesilani informaci o okoli ostatnim agentum jsou na prevno nastaveni
-    cilovy agenti. Melo by jit si ostatni agenty vytahnout z baze znalosti
-    pres friend(_), ale nevim jak ziskat oba zaznamy.
-  - scout vice agentu moc nefunguje, protoze vsichni vyberou stejny cil, takze
-    jdou na stejne misto
-  - pri scoutu se nebere v uvahu dohled tj. neni treba chodit tak daleko, kdyz
+  - Pruzkum vice agentu neni efektivni, protoze vsichni vyberou stejny cil, 
+    takze jdou na stejne misto
+  - Pri pruzkumu se nebere v uvahu dohled tj. neni treba chodit tak daleko, kdyz
     tam stejne dohledne
 
  Kosmeticke:
