@@ -22,6 +22,10 @@ MAS miners {
 /* =============================================================================
 
  TODO:
+  - Momentalne prikazy od velitele chodi nejak pozde, protoze po kazdem unloadu
+    jde agent tak 2 3 kola scoutovat nez je poslan pro dalsi zdroj. To je 
+    zpusobeno cekanim na dokonceni prikazu vsech agentu. Tedy pokud je jeden
+    pomaly tak ten rychly odevzda zdroj a musi cekat na pomalo -> zatim scoutuje
   - Ihned po zvednuti jednoho zdroje jej agenti odnasi do depa
   - Po odevzdani vsech zdroji to crashne, ale to asi nebude nase chyba.
   - Nekdy se stane, ze jenom jeden agent zvedne zdroj ze zeme.

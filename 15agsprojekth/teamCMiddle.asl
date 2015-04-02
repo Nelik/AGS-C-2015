@@ -1,13 +1,12 @@
 // !!! Pri kopirovani celeho kodu do jinych agentu je potreba prepsat:       !!!
-// !!!  1) spratelene agenty v pocatecni znalosti friendA(), friendB()       !!!
-// !!!  2) pocatecni znalosti range(X)                                       !!!
-// !!!  3) commander agent obsahuje akce pro zadavani prikazu                !!!
+// !!!  1) pocatecni znalosti range(X)                                       !!!
+// !!!  2) commander agent obsahuje akce pro zadavani prikazu                !!!
+// !!!                                                                       !!!
+// !!!  Fast a Middle jsou temer totozni agenti z pohledu kodu. Slow agent   !!!
+// !!!  navic odesila prikazy ostatnim.                                      !!!
 /* =========================== POCATECNY ZNALOSTI =========================== */
 
 range(1). // Ulozeni vzdalenosti, protoze implicitne neni ulozena.
-friendA(aFast). // Sprateleni agenti, kterym se budou odesilat informace o okoli
-friendB(aSlow).
-
 commander(aSlow).
 
 // Agent nic nedela, ale aSlow mu na zacatku posle prikaz scout.
@@ -64,8 +63,17 @@ intention(idle). // Pocatecni zamer
 /* ========================== IMPLEMENTACE PRIKAZU ========================== */
 
 // Agent pujde k prvni neprozkoumane bunce, kterou vytahne z baze znalosti.
-+!scout : unknown(X,Y) <- !moveTo(X,Y).     // Porad existuji neprozkoumane bunky
-+!scout : true         <- -intention(scout).// Vsechny bunky byly prozkoumany
++!scout : unknown(_,_) <- // Porad existuji neprozkoumane bunky
+    !getRandomUnknown(X,Y);
+    -intention(scout); 
+    +intention(goTo,X,Y).
++!scout : true <- -intention(scout).// Vsechny bunky byly prozkoumany
+
++!getRandomUnknown(X,Y) <- 
+    .findall(unknown(A,B), unknown(A,B), Unknowns);  // Nacteni vsech neprozkoumanych bunek
+    .length(Unknowns, Length);                       // Pocet bunek
+    RandIndex = math.round(math.random(Length - 1)); // Nahodne zvolime bunku
+    .nth(RandIndex, Unknowns, unknown(X,Y)).         // Nacteni bunky ze seznamu
 
 // Prikaz k presunu na pozici [X,Y]
 +!goTo(X,Y) : pos(X,Y) <- -intention(goTo,X,Y). // Uz jsme na miste
@@ -75,7 +83,7 @@ intention(idle). // Pocatecni zamer
 +!pick(X,Y) : pos(X,Y) & ally(X,Y) & moves_left(ML) & moves_per_round(ML) <- 
     do(pick); 
     -intention(pick,X,Y); 
-    +intention(unload). // Hned po zvednuti zdroje jej jde ulozit do depa
+    +intention(unload).
 +!pick(X,Y) : pos(X,Y) <- do(skip). // Cekani na jineho agenta
 +!pick(X,Y) : true     <- !moveTo(X,Y).
 
@@ -115,7 +123,7 @@ intention(idle). // Pocatecni zamer
     }.
 
 // Kontrola zda byla bunka objevena
-+!checkUnknown(X,Y) : unknown(X,Y) <- -unknown(X,Y); !sendDiscoverInfo(X,Y); .
++!checkUnknown(X,Y) : unknown(X,Y) <- -unknown(X,Y); !sendDiscoverInfo(X,Y).
 +!checkUnknown(X,Y). // O prazdnem miste uz vime
 
 // Aktualizace znalosti o prekazkach
@@ -142,18 +150,24 @@ intention(idle). // Pocatecni zamer
     !sendObjectInfo(wood,X,Y,remove). 
 +!checkWood(X,Y). // Drevo taky neni
 
+
 /* ============= AKCE PRO ODESLANI/PRIJMUNI INFOMACI O PROSTORU ============= */
 
-+!sendDiscoverInfo(X,Y) : friendA(FA) & friendB(FB) <- 
-    .send(FA, achieve, recvDiscoverInfo(X,Y));
-    .send(FB, achieve, recvDiscoverInfo(X,Y)).
+// Nacteni vsech friendu z baze znalosti
++!sendAchieveToAll(Action) <-
+    for (friend(Agent)) 
+    {
+        .send(Agent, achieve, Action);
+    }.
 
-+!sendObjectInfo(O,X,Y,AddRemove) : friendA(FA) & friendB(FB) <- 
-    .send(FA, achieve, recvObjectInfo(O,X,Y,AddRemove));
-    .send(FB, achieve, recvObjectInfo(O,X,Y,AddRemove)).
+// Temer zbytecne akce, rovnou by slo psat sendAchieveToAll
++!sendDiscoverInfo(X,Y) <- !sendAchieveToAll(recvDiscoverInfo(X,Y)).
++!sendObjectInfo(O,X,Y,AddRemove) <- !sendAchieveToAll(recvObjectInfo(O,X,Y,AddRemove)).
 
+// Reakce na objeveni bunky
 +!recvDiscoverInfo(X,Y) <- -unknown(X,Y).
 
+// Reakce na objeveni zdroje
 +!recvObjectInfo(O,X,Y,AddRemove) : AddRemove == add    <- +obj(O,X,Y).
 +!recvObjectInfo(O,X,Y,AddRemove) : AddRemove == remove <- -obj(O,X,Y).
 
