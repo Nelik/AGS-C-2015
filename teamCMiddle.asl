@@ -150,7 +150,6 @@ intention(idle). // Pocatecni zamer
     !sendObjectInfo(wood,X,Y,remove). 
 +!checkWood(X,Y). // Drevo taky neni
 
-
 /* ============= AKCE PRO ODESLANI/PRIJMUNI INFOMACI O PROSTORU ============= */
 
 // Nacteni vsech friendu z baze znalosti
