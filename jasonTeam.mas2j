@@ -38,11 +38,9 @@ MAS miners {
 
  Kosmeticke:
   - prejmenovat "!work"?
-  - prejmenovat "intention"?
   - prejmenovat "discover"? na reveal?
   - nekdy u posledni akce pisi "+!akce : true <- !neco"; ": true" je zbytecne,
     mozna odstranit (ale lepe to vypada pri zarovnani)
-  - psat !akce(X,Y,Z) nebo !akce(X, Y, Z)?
   
 ========================= PROTOKOL CILU/ZAMERU/PLANU ===========================
 

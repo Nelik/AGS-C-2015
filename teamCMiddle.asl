@@ -4,7 +4,7 @@
 // !!!                                                                       !!!
 // !!!  Fast a Middle jsou temer totozni agenti z pohledu kodu. Slow agent   !!!
 // !!!  navic odesila prikazy ostatnim.                                      !!!
-/* =========================== POCATECNY ZNALOSTI =========================== */
+/* =========================== POCATECNI ZNALOSTI =========================== */
 
 range(1). // Ulozeni vzdalenosti, protoze implicitne neni ulozena.
 commander(aSlow).
@@ -17,7 +17,6 @@ intention(idle). // Pocatecni zamer
 
 // Inicializace baze znalosti
 @init[atomic] +!init <-
-    !onDepotInit;
     !initUnknown;
     !lookAround.
 
@@ -52,8 +51,8 @@ intention(idle). // Pocatecni zamer
 // Provadeni akci na zaklade aktualniho zameru
 +!doIntention : intention(scout)    <- !scout.
 +!doIntention : intention(goTo,X,Y) <- !goTo(X,Y).
-+!doIntention : intention(pick,X,Y) <- !pick(X,Y). // !!! ZATIM JEN NASTIN !!!
-+!doIntention : intention(unload)   <- !unload.
++!doIntention : intention(pick,X,Y) <- !pick(X,Y).
++!doIntention : intention(unload)   <- !onDepotInit; !unload.
 +!doIntention : intention(idle)     <- do(skip).
 +!doIntention : true                <- !chooseNextIntention.
 
@@ -127,9 +126,9 @@ intention(idle). // Pocatecni zamer
 +!checkUnknown(X,Y). // O prazdnem miste uz vime
 
 // Aktualizace znalosti o prekazkach
-+!checkObstacle(X,Y) : obsticle(X,Y) & not obj(obsticle,X,Y) <- // Nova prekazka
-    +obs(X,Y); 
-    !sendObjectInfo(obsticle,X,Y,add). 
++!checkObstacle(X,Y) : obstacle(X,Y) & not obj(obs,X,Y) <- // Nova prekazka
+    +obj(obs,X,Y); 
+    !sendObjectInfo(obs,X,Y,add). 
 +!checkObstacle(X,Y). // Prekazka tady neni
 
 // Aktualizace znalosti o zlate
@@ -176,10 +175,78 @@ intention(idle). // Pocatecni zamer
 +!moveToDepot : depot(DX, DY) <- !moveTo(DX,DY).
 
 // Pohyb na [X,Y] bunku
+// Kdyz obchazim prekazku doleva tak doprava urcite muzu, ale nemela 
+// bych se vracet - doprava znovu muzu az se priblizim k cili ve smeru nahoru/dolu
 +!moveTo(TarX,TarY) : pos(PosX,PosY) <- !moveTo(PosX,PosY,TarX,TarY).
-+!moveTo(PosX,PosY,TarX,TarY) : PosX < TarX <- do(right); !onDepotInit.
-+!moveTo(PosX,PosY,TarX,TarY) : PosX > TarX <- do(left); !onDepotInit.
-+!moveTo(PosX,PosY,TarX,TarY) : PosY < TarY <- do(down); !onDepotInit.
-+!moveTo(PosX,PosY,TarX,TarY) : PosY > TarY <- do(up); !onDepotInit.
-+!moveTo(PosX,PosY,TarX,TarY). // Uz jsem na miste: PosX == TarX & PosY == TarY
++!moveTo(PosX,PosY,TarX,TarY) : PosX < TarX & not obj(obs,PosX + 1, PosY)
+	& not rounding("L") <- do(right); 
+	if(rounding("D")){-rounding("D")}
+	else{if(rounding("U")){-rounding("U")}}.
++!moveTo(PosX,PosY,TarX,TarY) : PosX > TarX & not obj(obs,PosX - 1, PosY)
+	& not rounding("R") <- do(left);
+	if(rounding("D")){-rounding("D")}
+	else{if(rounding("U")){-rounding("U")}}.
++!moveTo(PosX,PosY,TarX,TarY) : PosY < TarY & not obj(obs,PosX, PosY + 1)
+	& not rounding("U") <- do(down);
+	if(rounding("R")){-rounding("R")}
+	else{if(rounding("L")){-rounding("L")}}.
++!moveTo(PosX,PosY,TarX,TarY) : PosY > TarY & not obj(obs,PosX, PosY-1)
+	& not rounding("D") <- do(up);
+	if(rounding("R")){-rounding("R")}
+	else{if(rounding("L")){-rounding("L")}}.
++!moveTo(PosX,PosY,TarX,TarY) : PosX == TarX & PosY == TarY. //Jsme na miste
++!moveTo(PosX,PosY,TarX,TarY) : true <- !roundBar(PosX, PosY, TarX, TarY). 
+/*======================= OBCHAZENI PREKAZKY ================================ */
+// Obchazime zleva, pokracujeme doleva, pokud muzeme
++!roundBar(PosX, PosY, TarX, TarY): rounding("L") &  
+	not obj(obs,PosX - 1, PosY) <- do(left) ;
+	if(rounding("D")){-rounding("D")}
+	else{if(rounding("U")){-rounding("U")}}.
+
+// Obchazime zprava, pokracujeme doprava, pokud muzeme
++!roundBar(PosX, PosY, TarX, TarY): rounding("R") & 
+	not obj(obs,PosX + 1, PosY) <- do(right); 
+	if(rounding("D")){-rounding("D")}
+	else{if(rounding("U")){-rounding("U")}}.
+	
+// Obchazime prekazku zleva/zprava, cil lezi vpravo-vlevo dole, ale nemuzeme jit 
+// ani doleva-doprava ani dolu - zkusime nahoru
++!roundBar(PosX, PosY, TarX, TarY): PosY < TarY & (rounding("L") | rounding("R")) &
+	not obj(obs,PosX, PosY-1) <- do(up); +rounding("U").
+
+// Obchazime prekazku zleva-zprava, cil lezi vpravo/vlevo nahore, ale nemuzeme 
+// jit ani doleva-doprava ani dolu - zkusime nahoru
++!roundBar(PosX, PosY, TarX, TarY): PosY > TarY & (rounding("L") | rounding("R")) &
+	not obj(obs,PosX, PosY+1) <- do(down); +rounding("D").
+	
+// Obchazime prekazku zleva, cil lezi vpravo, ale nemuzeme jit ani doleva
+// ani dolu ani nahoru - jdeme doprava
++!roundBar(PosX, PosY, TarX, TarY): rounding("L") &
+	not obj(obs,PosX+1, PosY) <- do(right);
+	?rounding(X); -rounding(X).
+	
+// Obchazime prekazku zprava, cil lezi vlevo, ale nemuzeme jit ani doprava
+// ani dolu ani nahoru - jdeme doleva
++!roundBar(PosX, PosY, TarX, TarY): rounding("R") &
+	not obj(obs,PosX-1, PosY) <- do(left); 
+	?rounding(X); -rounding(X).
+
+
+/***************** Narazili jsme poprve prekazku ******************************/
+// Cil vpravo
++!roundBar(PosX, PosY, TarX, TarY): PosX < TarX & 
+	not obj(obs,PosX - 1, PosY) <- +rounding("L"); do(left).
+									
++!roundBar(PosX, PosY, TarX, TarY): PosX < TarX <- +rounding("L"); 
+	!roundBar(PosX, PosY, TarX, TarY).
+	
+// Cil vlevo
++!roundBar(PosX, PosY, TarX, TarY): PosX > TarX &
+	not obj(obs,PosX + 1, PosY) <- +rounding("R"); do(right).
+									
++!roundBar(PosX, PosY, TarX, TarY): PosX > TarX <- +rounding("R"); 
+	!roundBar(PosX, PosY, TarX, TarY).
+
++!roundBar(PosX, PosY, TarX, TarY) <- .print("Dostali jsme se do slepe ulicky.").
+/*============================================================================*/
 
