@@ -27,6 +27,10 @@ intention(idle). // Pocatecni zamer
         for (.range(Y, 0, GY - 1))
         {
             +unknown(X,Y);
+			+obj(obs, -1, Y);
+			+obj(obs, GX, Y);
+			+obj(obs, X, -1);
+			+obj(obs, X, GY);
         }
     }.
 
@@ -54,7 +58,7 @@ intention(idle). // Pocatecni zamer
 +!doIntention : intention(pick,X,Y) <- !pick(X,Y).
 +!doIntention : intention(unload)   <- !onDepotInit; !unload.
 +!doIntention : intention(idle)     <- do(skip).
-+!doIntention : true                <- !chooseNextIntention.
++!doIntention : true                <- -was_there(_, _); !chooseNextIntention.
 
 +!chooseNextIntention : unknown(X,Y) <- +intention(scout). // Kdyz nic, tak scout
 +!chooseNextIntention : true         <- +intention(idle);.print("idle").
@@ -75,13 +79,13 @@ intention(idle). // Pocatecni zamer
     .nth(RandIndex, Unknowns, unknown(X,Y)).         // Nacteni bunky ze seznamu
 
 // Prikaz k presunu na pozici [X,Y]
-+!goTo(X,Y) : pos(X,Y) <- -intention(goTo,X,Y). // Uz jsme na miste
++!goTo(X,Y) : pos(X,Y) <- -was_there(_, _); -intention(goTo,X,Y). // Uz jsme na miste
 +!goTo(X,Y) : true     <- !moveTo(X,Y).         // Porad tam nejsme
 
 // Zvednuti zdroje ze zeme (agent musi mit plny pocet pohybovych bodu).
 +!pick(X,Y) : pos(X,Y) & ally(X,Y) & moves_left(ML) & moves_per_round(ML) <- 
     do(pick); 
-    -intention(pick,X,Y); 
+    -intention(pick,X,Y);
     +intention(unload).
 +!pick(X,Y) : pos(X,Y) <- do(skip). // Cekani na jineho agenta
 +!pick(X,Y) : true     <- !moveTo(X,Y).
@@ -104,7 +108,7 @@ intention(idle). // Pocatecni zamer
 
 // Odstraneni aktualniho zameru
 // !!! Pokud pribudou nove zamery s vetsi aritou je treba dopsat !!!
-+!clearIntention <- -intention(_); -intention(_,_); -intention(_,_,_).
++!clearIntention <- -was_there(_, _); -intention(_); -intention(_,_); -intention(_,_,_).
 
 /* ===================== PROHLEDAVANI VIDITELNEHO OKOLI ===================== */
 
@@ -175,78 +179,158 @@ intention(idle). // Pocatecni zamer
 +!moveToDepot : depot(DX, DY) <- !moveTo(DX,DY).
 
 // Pohyb na [X,Y] bunku
-// Kdyz obchazim prekazku doleva tak doprava urcite muzu, ale nemela 
-// bych se vracet - doprava znovu muzu az se priblizim k cili ve smeru nahoru/dolu
-+!moveTo(TarX,TarY) : pos(PosX,PosY) <- !moveTo(PosX,PosY,TarX,TarY).
-+!moveTo(PosX,PosY,TarX,TarY) : PosX < TarX & not obj(obs,PosX + 1, PosY)
-	& not rounding("L") <- do(right); 
-	if(rounding("D")){-rounding("D")}
-	else{if(rounding("U")){-rounding("U")}}.
-+!moveTo(PosX,PosY,TarX,TarY) : PosX > TarX & not obj(obs,PosX - 1, PosY)
-	& not rounding("R") <- do(left);
-	if(rounding("D")){-rounding("D")}
-	else{if(rounding("U")){-rounding("U")}}.
-+!moveTo(PosX,PosY,TarX,TarY) : PosY < TarY & not obj(obs,PosX, PosY + 1)
-	& not rounding("U") <- do(down);
-	if(rounding("R")){-rounding("R")}
-	else{if(rounding("L")){-rounding("L")}}.
-+!moveTo(PosX,PosY,TarX,TarY) : PosY > TarY & not obj(obs,PosX, PosY-1)
-	& not rounding("D") <- do(up);
-	if(rounding("R")){-rounding("R")}
-	else{if(rounding("L")){-rounding("L")}}.
-+!moveTo(PosX,PosY,TarX,TarY) : PosX == TarX & PosY == TarY. //Jsme na miste
-+!moveTo(PosX,PosY,TarX,TarY) : true <- !roundBar(PosX, PosY, TarX, TarY). 
++!moveTo(TarX,TarY) : pos(PosX,PosY) <- !moveTo(PosX,PosY,TarX,TarY);
+	if(was_there(TarX, TarY)){-was_there(_, _)}.
+
+// Jsme na miste
++!moveTo(PosX,PosY,TarX,TarY) : PosX == TarX & PosY == TarY <- -was_there(_, _). 
+
+
++!moveTo(PosX,PosY,TarX,TarY) : not was_there(PosX + 1, PosY) & PosX < TarX 
+	& not obj(obs,PosX + 1, PosY) <- !my_do(right); -rounding(_).
+	
++!moveTo(PosX,PosY,TarX,TarY) : not was_there(PosX - 1, PosY) & PosX > TarX 
+	& not obj(obs,PosX - 1, PosY) <- !my_do(left); -rounding(_).
+	
++!moveTo(PosX,PosY,TarX,TarY) : not was_there(PosX, PosY + 1) & PosY < TarY 
+	& not obj(obs,PosX, PosY + 1) <- !my_do(down); -rounding(_).
+	
++!moveTo(PosX,PosY,TarX,TarY) : not was_there(PosX, PosY - 1) & PosY > TarY 
+	& not obj(obs,PosX, PosY-1) <- !my_do(up);	-rounding(_).
+	
++!moveTo(PosX,PosY,TarX,TarY) : true <- !roundBar(PosX, PosY, TarX, TarY).
+
 /*======================= OBCHAZENI PREKAZKY ================================ */
+// Obchazime prekazku smerem dolu, vime ze nemuzeme jit ve smeru cile doleva/doprava
++!roundBar(PosX, PosY, TarX, TarY): rounding("D") &  
+	not obj(obs,PosX, PosY+1) <- !my_do(down).
+	
++!roundBar(PosX, PosY, TarX, TarY): rounding("U") &  
+	not obj(obs,PosX, PosY-1) <- !my_do(up).
+
+// Obchazime prekazku smerem nahoru/dolu, ale tam nemuzeme jit,
+// rozhodneme se tedy jestli jit vlevo/vpravo
++!roundBar(PosX, PosY, TarX, TarY): rounding("U") | rounding("D") 
+	<- -rounding(_); !decide(left_right, PosX, PosY, TarX, TarY).
+	
 // Obchazime zleva, pokracujeme doleva, pokud muzeme
 +!roundBar(PosX, PosY, TarX, TarY): rounding("L") &  
-	not obj(obs,PosX - 1, PosY) <- do(left) ;
-	if(rounding("D")){-rounding("D")}
-	else{if(rounding("U")){-rounding("U")}}.
+	not obj(obs,PosX - 1, PosY) <- !my_do(left).
 
 // Obchazime zprava, pokracujeme doprava, pokud muzeme
 +!roundBar(PosX, PosY, TarX, TarY): rounding("R") & 
-	not obj(obs,PosX + 1, PosY) <- do(right); 
-	if(rounding("D")){-rounding("D")}
-	else{if(rounding("U")){-rounding("U")}}.
+	not obj(obs,PosX + 1, PosY) <- !my_do(right).
 	
-// Obchazime prekazku zleva/zprava, cil lezi vpravo-vlevo dole, ale nemuzeme jit 
-// ani doleva-doprava ani dolu - zkusime nahoru
-+!roundBar(PosX, PosY, TarX, TarY): PosY < TarY & (rounding("L") | rounding("R")) &
-	not obj(obs,PosX, PosY-1) <- do(up); +rounding("U").
-
-// Obchazime prekazku zleva-zprava, cil lezi vpravo/vlevo nahore, ale nemuzeme 
-// jit ani doleva-doprava ani dolu - zkusime nahoru
-+!roundBar(PosX, PosY, TarX, TarY): PosY > TarY & (rounding("L") | rounding("R")) &
-	not obj(obs,PosX, PosY+1) <- do(down); +rounding("D").
-	
-// Obchazime prekazku zleva, cil lezi vpravo, ale nemuzeme jit ani doleva
-// ani dolu ani nahoru - jdeme doprava
-+!roundBar(PosX, PosY, TarX, TarY): rounding("L") &
-	not obj(obs,PosX+1, PosY) <- do(right);
-	?rounding(X); -rounding(X).
-	
-// Obchazime prekazku zprava, cil lezi vlevo, ale nemuzeme jit ani doprava
-// ani dolu ani nahoru - jdeme doleva
-+!roundBar(PosX, PosY, TarX, TarY): rounding("R") &
-	not obj(obs,PosX-1, PosY) <- do(left); 
-	?rounding(X); -rounding(X).
+// Obchazime prekazku zleva/zprava, ale tam nemuzeme jit,
+// rozhodujeme se tedy jit nahoru, dolu?
++!roundBar(PosX, PosY, TarX, TarY): rounding("L") | rounding("R") <-
+	-rounding(_); !decide(up_down, PosX, PosY, TarX, TarY).
 
 
 /***************** Narazili jsme poprve prekazku ******************************/
-// Cil vpravo
-+!roundBar(PosX, PosY, TarX, TarY): PosX < TarX & 
-	not obj(obs,PosX - 1, PosY) <- +rounding("L"); do(left).
-									
-+!roundBar(PosX, PosY, TarX, TarY): PosX < TarX <- +rounding("L"); 
-	!roundBar(PosX, PosY, TarX, TarY).
+// Jsme ve spravne Y souradnici, ale potrebujeme obejit prekazku - musime
+// tedy jit vlevo nebo vpravo
++!roundBar(PosX, PosY, TarX, TarY): PosY == TarY
+	<- !decide(up_down, PosX, PosY, TarX, TarY).
 	
-// Cil vlevo
-+!roundBar(PosX, PosY, TarX, TarY): PosX > TarX &
-	not obj(obs,PosX + 1, PosY) <- +rounding("R"); do(right).
-									
-+!roundBar(PosX, PosY, TarX, TarY): PosX > TarX <- +rounding("R"); 
-	!roundBar(PosX, PosY, TarX, TarY).
++!roundBar(PosX, PosY, TarX, TarY): PosX == TarX 
+	<- !decide(left_right, PosX, PosY, TarX, TarY).
+	
+// Cil vpravo-nahore/dole ale tam nemuzeme jit, protoze jsme tam bud
+// byli nebo je tam prekazka - zkusime nejdrive doleva a potom dolu/nahoru
++!roundBar(PosX, PosY, TarX, TarY): PosX < TarX
+	& not was_there(PosX - 1, PosY) & not obj(obs,PosX - 1, PosY) 
+	<- +rounding("L"); !my_do(left).
++!roundBar(PosX, PosY, TarX, TarY): PosX < TarX & PosY > TarY
+	& not was_there(PosX, PosY+1) & not obj(obs,PosX, PosY + 1) 
+	<- +rounding("D"); !my_do(down).
++!roundBar(PosX, PosY, TarX, TarY): PosX < TarX & PosY < TarY
+	& not was_there(PosX, PosY-1) & not obj(obs,PosX, PosY - 1) 
+	<- +rounding("U"); !my_do(up).
+	
+// Cil vlevo-nahore/dole ale tam nemuzeme jit, protoze jsme tam bud
+// byli nebo je tam prekazka - zkusime nejdrive dolprava a potom dolu/nahoru
++!roundBar(PosX, PosY, TarX, TarY): PosX > TarX
+	& not was_there(PosX + 1, PosY) & not obj(obs,PosX + 1, PosY) 
+	<- +rounding("R"); !my_do(right).
++!roundBar(PosX, PosY, TarX, TarY): PosX > TarX & PosY > TarY
+	& not was_there(PosX, PosY+1) & not obj(obs,PosX, PosY+1) 
+	<- +rounding("D"); !my_do(down).
++!roundBar(PosX, PosY, TarX, TarY): PosX > TarX & PosY < TarY
+	& not was_there(PosX, PosY-1) & not obj(obs,PosX, PosY-1) 
+	<- +rounding("U"); !my_do(up).
 
-+!roundBar(PosX, PosY, TarX, TarY) <- .print("Dostali jsme se do slepe ulicky.").
++!roundBar(PosX, PosY, TarX, TarY) <- -was_there(_, _); 
+	!moveTo(PosX, PosY, TarX, TarY).
+	/*do(skip); 
+	.print("Dostali jsme se do slepe ulicky.").*/
+
 /*============================================================================*/
+// Pred dosazenim cile, ukladam pozice, kde jsme byli, abychom se nevraceli.
++!my_do(X): pos(PosX, PosY) <- +was_there(PosX, PosY); do(X).
+// Jen pro jistotu  - ale nemeli bychom se tady nikdy dostat
++!my_do(X) <- do(X); .print("Divne, tady nikdy nemame byt.").
+
+	
+// PosX a PosY - aktualni pozice, X, Y - policko, kde jsme byli predtim
+
+// Prisli jsme shora -> nepujdeme znova nahoru, ale jdeme dolu
++!decide(up_down, PosX, PosY, TarX, TarY): not was_there(PosX, PosY - 1)
+	& not obj(obs, PosX, PosY - 1)
+	<- !my_do(up); if (PosY <= TarY){+rounding("U")}.
+
+// Prisli jsme zdola -> nepujdeme znova dolu, ale jdeme nahoru	
++!decide(up_down, PosX, PosY, TarX, TarY): not was_there(PosX, PosY + 1) 
+	& not obj(obs, PosX, PosY + 1)
+	<- !my_do(down); if (PosY >= TarY){+rounding("D")}.
+
++!decide(up_down, PosX, PosY, TarX, TarY) 
+	<- !decide2(left_right, PosX, PosY, TarX, TarY).
+
+
+// Prisli jsme zprava -> nepujdeme znova doprava, ale jdeme doleva
++!decide(left_right, PosX, PosY, TarX, TarY): not was_there(PosX - 1, PosY) 
+	& not obj(obs, PosX - 1, PosY)
+	<- !my_do(left); if (PosX <= TarX) {+rounding("L")}.	
+
+// Prisli jsme zleva -> nepujdeme znova doleva, ale jdeme doprava
++!decide(left_right, PosX, PosY, TarX, TarY): not was_there(PosX + 1, PosY) 
+	& not obj(obs, PosX + 1, PosY)
+	<- !my_do(right); if (PosX >= TarX) {+rounding("R")}.	
+
++!decide(left_right, PosX, PosY, TarX, TarY)
+	<- !decide2(up_down, PosX, PosY, TarX, TarY).
+	
+//------------------- Decide 2 -----------------------------------------------//
+// Prisli jsme shora -> nepujdeme znova nahoru, ale jdeme dolu
++!decide2(up_down, PosX, PosY, TarX, TarY): not was_there(PosX, PosY - 1)
+	& not obj(obs, PosX, PosY - 1)
+	<- !my_do(up); if (PosY <= TarY){+rounding("U")}.
+
+// Prisli jsme zdola -> nepujdeme znova dolu, ale jdeme nahoru	
++!decide2(up_down, PosX, PosY, TarX, TarY): not was_there(PosX, PosY + 1) 
+	& not obj(obs, PosX, PosY + 1)
+	<- !my_do(down); if (PosY >= TarY){+rounding("D")}.
+
++!decide2(up_down, PosX, PosY, TarX, TarY) 
+	<- -was_there(_, _); !moveTo(PosX, PosY, TarX, TarY).
+	
+// Prisli jsme zprava -> nepujdeme znova doprava, ale jdeme doleva
++!decide2(left_right, PosX, PosY, TarX, TarY): not was_there(PosX - 1, PosY) 
+	& not obj(obs, PosX - 1, PosY)
+	<- !my_do(left); if (PosX <= TarX) {+rounding("L")}.	
+
+// Prisli jsme zleva -> nepujdeme znova doleva, ale jdeme doprava
++!decide2(left_right, PosX, PosY, TarX, TarY): not was_there(PosX + 1, PosY) 
+	& not obj(obs, PosX + 1, PosY)
+	<- !my_do(right); if (PosX >= TarX) {+rounding("R")}.	
+
++!decide2(left_right, PosX, PosY, TarX, TarY)
+	<- -was_there(_, _); !moveTo(PosX, PosY, TarX, TarY).
+
+//------------------- Konec Decide 2 -----------------------------------------//	
++!decide(left_right, PosX, PosY, TarX, TarY) 
+	<- .print("Tady bychom se nemeli nikdy ocitnout :-D.").
++!decide(up_down, PosX, PosY, TarX, TarY) 
+	<- .print("Tady bychom se nemeli nikdy ocitnout :-D.").
 
