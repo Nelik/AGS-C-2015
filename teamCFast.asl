@@ -58,7 +58,7 @@ intention(idle). // Pocatecni zamer
 +!doIntention : intention(pick,X,Y) <- !pick(X,Y).
 +!doIntention : intention(unload)   <- !onDepotInit; !unload.
 +!doIntention : intention(idle)     <- do(skip).
-+!doIntention : true                <- -was_there(_, _); !chooseNextIntention.
++!doIntention : true                <- !delete_ws; !chooseNextIntention.
 
 +!chooseNextIntention : unknown(X,Y) <- +intention(scout). // Kdyz nic, tak scout
 +!chooseNextIntention : true         <- +intention(idle);.print("idle").
@@ -79,12 +79,13 @@ intention(idle). // Pocatecni zamer
     .nth(RandIndex, Unknowns, unknown(X,Y)).         // Nacteni bunky ze seznamu
 
 // Prikaz k presunu na pozici [X,Y]
-+!goTo(X,Y) : pos(X,Y) <- -was_there(_, _); -intention(goTo,X,Y). // Uz jsme na miste
++!goTo(X,Y) : pos(X,Y) <- !delete_ws; -intention(goTo,X,Y). // Uz jsme na miste
 +!goTo(X,Y) : true     <- !moveTo(X,Y).         // Porad tam nejsme
 
 // Zvednuti zdroje ze zeme (agent musi mit plny pocet pohybovych bodu).
 +!pick(X,Y) : pos(X,Y) & ally(X,Y) & moves_left(ML) & moves_per_round(ML) <- 
-    do(pick); 
+    !delete_ws;
+	do(pick); 
     -intention(pick,X,Y);
     +intention(unload).
 +!pick(X,Y) : pos(X,Y) <- do(skip). // Cekani na jineho agenta
@@ -95,7 +96,7 @@ intention(idle). // Pocatecni zamer
     do(drop); 
     -intention(unload);
     .send(C, achieve, commandDone(MN)).
-+!unload : onDepot(true)  <- do(skip).
++!unload : onDepot(true)  <- !delete_ws; do(skip).
 +!unload : onDepot(false) <- !moveToDepot.
 
 /* ============================ PRIJMUTI PRIKAZU ============================ */
@@ -108,7 +109,7 @@ intention(idle). // Pocatecni zamer
 
 // Odstraneni aktualniho zameru
 // !!! Pokud pribudou nove zamery s vetsi aritou je treba dopsat !!!
-+!clearIntention <- -was_there(_, _); -intention(_); -intention(_,_); -intention(_,_,_).
++!clearIntention <- !delete_ws; -intention(_); -intention(_,_); -intention(_,_,_).
 
 /* ===================== PROHLEDAVANI VIDITELNEHO OKOLI ===================== */
 
@@ -180,10 +181,10 @@ intention(idle). // Pocatecni zamer
 
 // Pohyb na [X,Y] bunku
 +!moveTo(TarX,TarY) : pos(PosX,PosY) <- !moveTo(PosX,PosY,TarX,TarY);
-	if(was_there(TarX, TarY)){-was_there(_, _)}.
+	if(was_there(TarX, TarY)){!delete_ws}.
 
 // Jsme na miste
-+!moveTo(PosX,PosY,TarX,TarY) : PosX == TarX & PosY == TarY <- -was_there(_, _). 
++!moveTo(PosX,PosY,TarX,TarY) : PosX == TarX & PosY == TarY <- !delete_ws. 
 
 
 +!moveTo(PosX,PosY,TarX,TarY) : not was_there(PosX + 1, PosY) & PosX < TarX 
@@ -260,10 +261,12 @@ intention(idle). // Pocatecni zamer
 	& not was_there(PosX, PosY-1) & not obj(obs,PosX, PosY-1) 
 	<- +rounding("U"); !my_do(up).
 
-+!roundBar(PosX, PosY, TarX, TarY) <- -was_there(_, _); 
-	!moveTo(PosX, PosY, TarX, TarY).
-	/*do(skip); 
-	.print("Dostali jsme se do slepe ulicky.").*/
+// Zkusili jsme vsechny smery a nic - vymazeme ze jsme byli v nejblizsim okoli
+// a zkusime se znovu pohnout
++!roundBar(PosX, PosY, TarX, TarY) <- 
+	-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
+	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);
+	!moveTo(PosX, PosY, TarX, TarY).	
 
 /*============================================================================*/
 // Pred dosazenim cile, ukladam pozice, kde jsme byli, abychom se nevraceli.
@@ -312,8 +315,12 @@ intention(idle). // Pocatecni zamer
 	& not obj(obs, PosX, PosY + 1)
 	<- !my_do(down); if (PosY >= TarY){+rounding("D")}.
 
-+!decide2(up_down, PosX, PosY, TarX, TarY) 
-	<- -was_there(_, _); !moveTo(PosX, PosY, TarX, TarY).
+// Zkusili jsme vsechny smery a nic - vymazeme ze jsme byli v nejblizsim okoli
+// a zkusime se znovu pohnout
++!decide2(up_down, PosX, PosY, TarX, TarY) <- 
+	-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
+	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);
+	!moveTo(PosX, PosY, TarX, TarY).
 	
 // Prisli jsme zprava -> nepujdeme znova doprava, ale jdeme doleva
 +!decide2(left_right, PosX, PosY, TarX, TarY): not was_there(PosX - 1, PosY) 
@@ -325,12 +332,19 @@ intention(idle). // Pocatecni zamer
 	& not obj(obs, PosX + 1, PosY)
 	<- !my_do(right); if (PosX >= TarX) {+rounding("R")}.	
 
-+!decide2(left_right, PosX, PosY, TarX, TarY)
-	<- -was_there(_, _); !moveTo(PosX, PosY, TarX, TarY).
+// Zkusili jsme vsechny smery a nic - vymazeme ze jsme byli v nejblizsim okoli
+// a zkusime se znovu pohnout
++!decide2(left_right, PosX, PosY, TarX, TarY) <- 
+	-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
+	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);
+	!moveTo(PosX, PosY, TarX, TarY).
 
 //------------------- Konec Decide 2 -----------------------------------------//	
 +!decide(left_right, PosX, PosY, TarX, TarY) 
 	<- .print("Tady bychom se nemeli nikdy ocitnout :-D.").
 +!decide(up_down, PosX, PosY, TarX, TarY) 
 	<- .print("Tady bychom se nemeli nikdy ocitnout :-D.").
+	
++!delete_ws: was_there(_, _) <- -was_there(_, _); !delete_ws.
++!delete_ws.
 
