@@ -239,7 +239,10 @@ intention(scout). // Pocatecni zamer
 // Obchazime prekazku smerem nahoru/dolu, ale tam nemuzeme jit,
 // rozhodneme se tedy jestli jit vlevo/vpravo
 +!roundBar(PosX, PosY, TarX, TarY): rounding("U") | rounding("D") 
-	<- -rounding(_); !decide(left_right, PosX, PosY, TarX, TarY).
+	<- -rounding(_);
+	-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
+	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);
+	!moveTo(PosX, PosY, TarX, TarY).
 	
 // Obchazime zleva, pokracujeme doleva, pokud muzeme
 +!roundBar(PosX, PosY, TarX, TarY): rounding("L") &  
@@ -252,8 +255,10 @@ intention(scout). // Pocatecni zamer
 // Obchazime prekazku zleva/zprava, ale tam nemuzeme jit,
 // rozhodujeme se tedy jit nahoru, dolu?
 +!roundBar(PosX, PosY, TarX, TarY): rounding("L") | rounding("R") <-
-	-rounding(_); !decide(up_down, PosX, PosY, TarX, TarY).
-
+	-rounding(_); 
+	-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
+	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);
+	!moveTo(PosX, PosY, TarX, TarY).
 
 /***************** Narazili jsme poprve prekazku ******************************/
 // Jsme ve spravne Y souradnici, ale potrebujeme obejit prekazku - musime
@@ -339,13 +344,6 @@ intention(scout). // Pocatecni zamer
 +!decide2(up_down, PosX, PosY, TarX, TarY): not was_there(PosX, PosY + 1) 
 	& not obj(obs, PosX, PosY + 1)
 	<- !my_do(down); if (PosY >= TarY){+rounding("D")}.
-
-// Zkusili jsme vsechny smery a nic - vymazeme ze jsme byli v nejblizsim okoli
-// a zkusime se znovu pohnout
-+!decide2(up_down, PosX, PosY, TarX, TarY) <- 
-	-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
-	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);
-	!moveTo(PosX, PosY, TarX, TarY).
 	
 // Prisli jsme zprava -> nepujdeme znova doprava, ale jdeme doleva
 +!decide2(left_right, PosX, PosY, TarX, TarY): not was_there(PosX - 1, PosY) 
@@ -357,11 +355,17 @@ intention(scout). // Pocatecni zamer
 	& not obj(obs, PosX + 1, PosY)
 	<- !my_do(right); if (PosX >= TarX) {+rounding("R")}.	
 
-// Zkusili jsme vsechny smery a nic - vymazeme ze jsme byli v nejblizsim okoli
+/*// Zkusili jsme vsechny smery a nic - vymazeme ze jsme byli v nejblizsim okoli
 // a zkusime se znovu pohnout
-+!decide2(left_right, PosX, PosY, TarX, TarY) <- 
++!decide2(_, PosX, PosY, TarX, TarY): PosX == TarX | PosY == TarY <-
 	-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
 	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);
+	!moveTo(PosX, PosY, TarX, TarY).*/
+// Zkusili jsme vsechny smery a nic - vymazeme ze jsme byli v nejblizsim okoli
+// a zkusime se znovu pohnout
++!decide2(_, PosX, PosY, TarX, TarY) <- 
+	/*-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
+	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);*/!delete_ws;
 	!moveTo(PosX, PosY, TarX, TarY).
 
 //------------------- Konec Decide 2 -----------------------------------------//
