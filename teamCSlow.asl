@@ -8,18 +8,26 @@
 
 range(3). // Ulozeni vzdalenosti, protoze implicitne neni ulozena.
 commander(aSlow).
+aStarDone(0).
 
-intention(scout). // Pocatecni zamer
+//intention(scout). // Pocatecni zamer
 
 /* ============================== INICIALIZACE ============================== */
 !init.
 
 // Inicializace baze znalosti
 @init[atomic] +!init <-
+	+obj(obstacle,12,3);
+	+obj(obstacle,13,3);
+	+obj(obstacle,14,3);
+	+obj(obstacle,15,3);
+	+obj(obstacle,16,3);
+	+intention(goTo,14,5);
     !onDepotInit;
     !initUnknown;
-    !lookAround;
-    !sendAchieveToAll(intentionScout). //? Ukazkove zadani prikazu
+    !lookAround.
+	//!intentionGoTo(14,0).
+    //!sendAchieveToAll(intentionScout). //? Ukazkove zadani prikazu
 
 // Inicializace nenavstivenych bunek
 +!initUnknown : grid_size(GX,GY) & depot(DX,DY) <-
@@ -47,6 +55,8 @@ intention(scout). // Pocatecni zamer
 
 // Macro, protoze doStep uz byl a potrebuju k nemu pribalit !lookAround.
 @macroStep[atomic] +!doMacroStep <- !lookAround; !giveCommands; !doIntention.
+//@macroStep[atomic] +!doMacroStep <- !lookAround; !doIntention.
+//@macroStep[atomic] +!doMacroStep <- !doIntention.
 
 // Provadeni akci na zaklade aktualniho zameru
 +!doIntention : intention(scout)    <- !scout.
@@ -153,9 +163,9 @@ intention(scout). // Pocatecni zamer
 +!checkUnknown(X,Y). // O prazdnem miste uz vime
 
 // Aktualizace znalosti o prekazkach
-+!checkObstacle(X,Y) : obsticle(X,Y) & not obj(obsticle,X,Y) <- // Nova prekazka
-    +obs(X,Y); 
-    !sendObjectInfo(obsticle,X,Y,add). 
++!checkObstacle(X,Y) : obstacle(X,Y) & not obj(obstacle,X,Y) <- // Nova prekazka
+    +obj(obstacle,X,Y);
+    !sendObjectInfo(obstacle,X,Y,add). 
 +!checkObstacle(X,Y). // Prekazka tady neni
 
 // Aktualizace znalosti o zlate
@@ -178,13 +188,24 @@ intention(scout). // Pocatecni zamer
 
 
 /* ============= AKCE PRO ODESLANI/PRIJMUNI INFOMACI O PROSTORU ============= */
++!lookAround : pos(PosX,PosY) & range(R) <- 
+    for (.range(X, PosX - R, PosX + R)) // Cyklus pres viditelne bunky
+    {
+        for (.range(Y, PosY - R, PosY + R))
+        {
+            !checkUnknown(X,Y);
+            !checkObstacle(X,Y);
+            !checkGold(X,Y);
+            !checkWood(X,Y);
+        }
+    }.
 
 // Nacteni vsech friendu z baze znalosti
-+!sendAchieveToAll(Action) <-
-    for (friend(Agent)) 
-    {
-        .send(Agent, achieve, Action);
-    }.
++!sendAchieveToAll(Action) <- true.
+    //for (friend(Agent)) 
+    //{
+    //    .send(Agent, achieve, Action);
+    //}.
 
 // Temer zbytecne akce, rovnou by slo psat sendAchieveToAll
 +!sendDiscoverInfo(X,Y) <- !sendAchieveToAll(recvDiscoverInfo(X,Y)).
@@ -197,16 +218,235 @@ intention(scout). // Pocatecni zamer
 +!recvObjectInfo(O,X,Y,AddRemove) : AddRemove == add    <- +obj(O,X,Y).
 +!recvObjectInfo(O,X,Y,AddRemove) : AddRemove == remove <- -obj(O,X,Y).
 
+
+/* ================================= TESTY ================================== */
++!nodeTest(Node) <-
+	.length(Node, NL);
+	.nth(0, Node, NodeX);
+	.nth(1, Node, NodeY);
+	.nth(2, Node, PNodeX);
+	.nth(3, Node, PNodeY);
+	.nth(4, Node, Gn);
+	.nth(5, Node, Fn).
+
++!aStarInitTest <-
+	.findall([X,Y,Px,Py,G,F], openSet(X,Y,Px,Py,G,F), OpenSet);
+	.findall([X,Y,Px,Py,G,F], closedSet(X,Y,Px,Py,G,F), ClosedSet);
+	.length(OpenSet, OL);
+	.nth(0, OpenSet, Node);
+	!nodeTest(Node);
+	.length(ClosedSet, CL).
+	
++!aStarLowestNodeTest(Node) <-
+	!nodeTest(Node).
+	
++!aStarNeighborsTest(Neighbors) <-
+	.length(Neighbors, L);
+	for(.range(X, 0, L-1))
+	{
+		.nth(X, Neighbors, Node);
+		!nodeTest(Node);
+	}.
+/* ================================= HELPERS ================================ */	
++!getNodeValuesHelper(Node,X,Y,Px,Py,G,F) <-
+	.nth(0, Node, X);
+	.nth(1, Node, Y);
+	.nth(2, Node, Px);
+	.nth(3, Node, Py);
+	.nth(4, Node, G);
+	.nth(5, Node, F).
+	
++!getCurrentNodeHelper(CurrentNode): currentNode(Cnx, Cny, Cnpx, Cnpy, Cng, Cnf) <-
+	CurrentNode = [Cnx, Cny, Cnpx, Cnpy, Cng, Cnf].
+	
 /* ================================= POHYB ================================== */
 
 // Pohyb k depu
 +!moveToDepot : depot(DX, DY) <- !moveTo(DX,DY).
 
++!heuristic(NodeX, NodeY, Return) : aStarGoal(GoalX, GoalY) <-
+	Dx = math.abs(NodeX - GoalX);
+	Dy = math.abs(NodeY - GoalY);
+	D = 1;
+	Return = D * (Dx + Dy).
+	
++!aStarInit(Sx, Sy) <-
+	!heuristic(Sx, Sy, H);
+	G = 0;
+	F = G + H;
+	+openSet(Sx,Sy,Sx,Sy,G,F).
+
++!getLowestRank <- 
+	.findall([X,Y,Px,Py,G,F], openSet(X,Y,Px,Py,G,F), OpenSet);
+	.length(OpenSet, OsLength);
+	for (.range(X, 0, OsLength-1))
+	{
+		.nth(X, OpenSet, ENode);
+		!getNodeValuesHelper(ENode, Nx, Ny, Npx, Npy, Ng, Nf);
+		if (X == 0)
+		{
+			+lowestFn(Nf); +currentNodePosition(Nx, Ny); +currentNode(Nx, Ny, Npx, Npy, Ng, Nf);
+		}
+		else
+		{
+			?lowestFn(Lfn);
+			if (Lfn > Nf)
+			{
+				-lowestFn(_); -currentNodePosition(_,_); -currentNode(_,_,_,_,_,_);
+				+lowestFn(Nf); +currentNodePosition(Nx, Ny); +currentNode(Nx, Ny, Npx, Npy, Ng, Nf);
+			}
+		}
+	}
+	.abolish(lowestFn(_));
+	.
+	
++!getNeigborsOfCurrent(Current, Neighbors): grid_size(GX, GY) <-
+	.nth(0, Current, CurrentX);
+	.nth(1, Current, CurrentY);
+	for(.range(X, CurrentX-1, CurrentX+1))
+	{
+		if (not obj(obstacle, X, CurrentY) & X \==CurrentX & X >= 0 & X < GX)
+		{
+			+neighbor(X, CurrentY, CurrentX, CurrentY);
+		}
+	}
+	for(.range(Y, CurrentY-1, CurrentY+1))
+	{
+		if(not obj(obstacle, CurrentX, Y) & Y \== CurrentY & Y >= 0 & Y < GY)
+		{
+			+neighbor(CurrentX,Y, CurrentX, CurrentY);
+		}
+	}
+	.findall([X,Y,Px,Py,0,0],neighbor(X,Y,Px,Py), Neighbors);
+	.abolish(neighbor(_,_,_,_)).
+
++!aStar(Sx, Sy, Gx, Gy) <-
+	!aStarInit(Sx, Sy);
+	.println("aStar");
+	// while lowest rank in OPEN is not the GOAL
+	+continue(1);
+	while(continue(1)){
+		!getLowestRank;
+		-continue(_);
+		?aStarGoal(TarX, TarY);
+		?currentNodePosition(Nx, Ny);
+		if (TarX == Nx & TarY == Ny)
+		{
+			+continue(0);		
+		}
+		else
+		{
+			+continue(1);
+		}
+		if (continue(1)){
+			?currentNode(Cnx, Cny, Cnpx, Cnpy, Cng, Cnf);
+			-openSet(Cnx, Cny, Cnpx, Cnpy, Cng, Cnf); // remove lowest rank node from OPEN
+			+closedSet(Cnx, Cny, Cnpx, Cnpy, Cng, Cnf); // add current to CLOSED
+			!getCurrentNodeHelper(CurrentNode);
+			!getNeigborsOfCurrent(CurrentNode, Neighbors);
+			.nth(4, CurrentNode, CurrentCost);
+			Cost = CurrentCost + 1; // 1 is movementCost which is always 1
+			.length(Neighbors, NeiLength);
+			for(.range(X, 0, NeiLength - 1))
+			{
+				.nth(X, Neighbors, Neighbor);
+
+				!getNodeValuesHelper(Neighbor, Neix, Neiy, Neipx, Neipy, Ng, Nf);
+				if (openSet(Neix, Neiy, _, _, _, _)) //if neighbor in OPEN
+				{
+					if(Cost < CostG)
+					{
+						//remove neighbor from OPEN, because new path is better
+						.println("remove neighbor from OPEN, because new path is better");
+						-openSet(Neix, Neiy, Neipx, Neipy, _, _);
+					}
+				}
+				if (closedSet(Neix, Neiy, _, _, _, _)) //if neighbor in CLOSED
+				{
+					if(Cost < Ng)
+					{
+						//remove neighbor from CLOSED
+						.println("remove neighbor from CLOSED");
+						-closedSet(Neix, Neiy, _, _, Ng, _);
+					}
+				}
+				if (not (openSet(Neix, Neiy, _, _, _, _) | closedSet(Neix, Neiy, _, _, _, _)))
+				{
+					//if neighbor not in OPEN and neighbor not in CLOSED:
+					//set g(neighbor) to cost
+					!heuristic(Neix, Neiy, H);
+					NewF = Cost + H; //set priority queue rank to g(neighbor) + h(neighbor)
+					//set neighbor's parent to current
+					//add neighbor to OPEN
+					+openSet(Neix, Neiy, Cnx, Cny, Cost, NewF);
+				}
+			}
+		}
+		-currentNodePosition(_,_); -currentNode(_,_,_,_,_,_);
+	}
+	// reconstruct reverse path from goal to start by following parent pointers
+	.println("Now I should reconstruct my path...");
+	+continue(1);
+	?aStarGoal(TarX, TarY);
+	?pos(PosX, PosY);
+	+actualX(PosX);
+	+actualY(PosY);
+	.findall([X,Y,PX,PY], closedSet(X,Y,PX,PY,_,_), PP);
+	while(continue(1))	
+	{
+		?actualX(Ax); ?actualY(Ay);
+		if(closedSet(Px, Py, Ax, Ay, _, _)){
+			-closedSet(Px, Py, Ax, Ay, _, _);
+			+path(Px,Py);
+			-actualX(_);
+			-actualY(_);
+			+actualX(Px);
+			+actualY(Py);
+			if (Px == TarX & Py == TarY)
+			{
+				-continue(_);
+				+continue(0);
+			}
+		}
+		else
+		{
+			+path(TarX, TarY);
+			-continue(_);
+			+continue(0);
+		}
+	}
+	.abolish(openSet(_,_,_,_,_,_));
+	.abolish(closedSet(_,_,_,_,_,_));
+	-lowestFn(_); -currentNodePosition(_,_); -currentNode(_,_,_,_,_,_);
+	.findall([X,Y], path(X,Y), ReversedPath);
+	.reverse(ReversedPath, Path);
+	.println("Path: ", Path);
+	-aStarDone(_);
+	+aStarDone(1);
+	.length(Path, PL);
+	for(.range(P, 0, PL - 1))
+	{
+		.nth(P, Path, PathPoint);
+		.nth(0, PathPoint, NewX);
+		.nth(1, PathPoint, NewY);
+		?pos(ActualX, ActualY);
+		+intention(goTo, NewX, NewY);
+	}.
+
+
 // Pohyb na [X,Y] bunku
-+!moveTo(TarX,TarY) : pos(PosX,PosY) <- !moveTo(PosX,PosY,TarX,TarY).
+// calculate destination angle
++!moveTo(TarX,TarY) : pos(PosX,PosY) & aStarDone(0) <- +aStarGoal(TarX, TarY); !aStar(PosX,PosY,TarX,TarY).
++!moveTo(TarX,TarY) : pos(PosX,PosY) & aStarDone(1) <- !moveTo(PosX, PosY, TarX, TarY).
+//+!moveTo(PosX,PosY,TarX,TarY) : PosX < TarX <- !tangBug(right,TarX,TarY); !onDepotInit.
+//+!moveTo(PosX,PosY,TarX,TarY) : PosX > TarX <- !tangBug(left,TarX,TarY); !onDepotInit.
+//+!moveTo(PosX,PosY,TarX,TarY) : PosY < TarY <- !tangBug(down,TarX,TarY); !onDepotInit.
+//+!moveTo(PosX,PosY,TarX,TarY) : PosY > TarY <- !tangBug(up,TarX,TarY); !onDepotInit.
+// Uz jsem na miste: PosX ==  TarX & PosY == TarY
 +!moveTo(PosX,PosY,TarX,TarY) : PosX < TarX <- do(right); !onDepotInit.
 +!moveTo(PosX,PosY,TarX,TarY) : PosX > TarX <- do(left); !onDepotInit.
 +!moveTo(PosX,PosY,TarX,TarY) : PosY < TarY <- do(down); !onDepotInit.
 +!moveTo(PosX,PosY,TarX,TarY) : PosY > TarY <- do(up); !onDepotInit.
-+!moveTo(PosX,PosY,TarX,TarY). // Uz jsem na miste: PosX == TarX & PosY == TarY
+//+!moveTo(PosX,PosY,TarX,TarY). // Uz jsem na miste: PosX == TarX & PosY == TarY
++!moveTo(PosX,PosY,TarX,TarY): true <- .println("HERE I AM!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"); -aStarDone(_); +aStarDone(0); !clearIntention.
 
