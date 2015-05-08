@@ -120,6 +120,7 @@ intention(scout). // Pocatecni zamer
 // Vyprazdneni agenta (agent musi mit plny pocet pohybovych bodu).
 +!unload : onDepot(true) & moves_left(ML) & moves_per_round(ML) & commander(C) & .my_name(MN) <- 
     do(drop);
+	!delete_ws;
     -intention(unload);
     .send(C, achieve, commandDone(MN)).
 +!unload : onDepot(true)  <- !delete_ws; do(skip).
@@ -230,35 +231,77 @@ intention(scout). // Pocatecni zamer
 
 /*======================= OBCHAZENI PREKAZKY ================================ */
 // Obchazime prekazku smerem dolu, vime ze nemuzeme jit ve smeru cile doleva/doprava
-+!roundBar(PosX, PosY, TarX, TarY): rounding("D") &  
-	not obj(obs,PosX, PosY+1) <- !my_do(down).
++!roundBar(PosX, PosY, TarX, TarY): rounding("D") 
+	& not was_there(PosX, PosY+1) 
+	& not obj(obs,PosX, PosY+1) 
+	<- !my_do(down).
 	
-+!roundBar(PosX, PosY, TarX, TarY): rounding("U") &  
-	not obj(obs,PosX, PosY-1) <- !my_do(up).
++!roundBar(PosX, PosY, TarX, TarY): rounding("U") 
+	& not was_there(PosX, PosY-1) 
+	& not obj(obs,PosX, PosY-1) 
+	<- !my_do(up).
+	
++!roundBar(PosX, PosY, TarX, TarY): (rounding("U") | rounding("D")) 
+	& PosX <= TarX 
+	& not was_there(PosX-1, PosY)
+	& not obj(obs,PosX-1, PosY) 
+	<- -rounding(_); +rounding("L"); !my_do(left).
+	
++!roundBar(PosX, PosY, TarX, TarY): (rounding("U") | rounding("D")) 
+	& PosX >= TarX 
+	& not was_there(PosX+1, PosY) 
+	& not obj(obs,PosX+1, PosY) 
+	<- -rounding(_); +rounding("R"); !my_do(right).
 
-// Obchazime prekazku smerem nahoru/dolu, ale tam nemuzeme jit,
-// rozhodneme se tedy jestli jit vlevo/vpravo
-+!roundBar(PosX, PosY, TarX, TarY): rounding("U") | rounding("D") 
-	<- -rounding(_);
-	-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
-	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);
-	!moveTo(PosX, PosY, TarX, TarY).
++!roundBar(PosX, PosY, TarX, TarY): rounding("D")
+	& not obj(obs,PosX, PosY+1) 
+	<- !my_do(down).
+	
++!roundBar(PosX, PosY, TarX, TarY): rounding("U") 
+	& not obj(obs,PosX, PosY-1) 
+	<- !my_do(up).
 	
 // Obchazime zleva, pokracujeme doleva, pokud muzeme
-+!roundBar(PosX, PosY, TarX, TarY): rounding("L") &  
-	not obj(obs,PosX - 1, PosY) <- !my_do(left).
++!roundBar(PosX, PosY, TarX, TarY): rounding("L") 
+	& not was_there(PosX-1, PosY) 
+	& not obj(obs,PosX - 1, PosY) 
+	<- !my_do(left).
 
 // Obchazime zprava, pokracujeme doprava, pokud muzeme
-+!roundBar(PosX, PosY, TarX, TarY): rounding("R") & 
-	not obj(obs,PosX + 1, PosY) <- !my_do(right).
++!roundBar(PosX, PosY, TarX, TarY): rounding("R") 
+	& not was_there(PosX+1, PosY) 
+	& not obj(obs,PosX+1, PosY) 
+	<- !my_do(right).
+	
++!roundBar(PosX, PosY, TarX, TarY): (rounding("L") | rounding("R")) 
+	& PosY <= TarY
+	& not was_there(PosX, PosY-1)
+	& not obj(obs,PosX, PosY-1) 
+	<- -rounding(_); +rounding("U"); !my_do(up).
+	
++!roundBar(PosX, PosY, TarX, TarY): (rounding("L") | rounding("R")) 
+	& PosY >= TarY
+	& not was_there(PosX, PosY+1)
+	& not obj(obs,PosX, PosY+1) 
+	<- -rounding(_); +rounding("D"); !my_do(down).
+	
++!roundBar(PosX, PosY, TarX, TarY): rounding("L") 
+	& not obj(obs,PosX - 1, PosY) 
+	<- !my_do(left).
+
+// Obchazime zprava, pokracujeme doprava, pokud muzeme
++!roundBar(PosX, PosY, TarX, TarY): rounding("R") 
+	& not obj(obs,PosX + 1, PosY) 
+	<- !my_do(right).
 	
 // Obchazime prekazku zleva/zprava, ale tam nemuzeme jit,
 // rozhodujeme se tedy jit nahoru, dolu?
-+!roundBar(PosX, PosY, TarX, TarY): rounding("L") | rounding("R") <-
-	-rounding(_); 
++!roundBar(PosX, PosY, TarX, TarY): rounding(_) 
+	<-  
 	-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
 	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);
 	!moveTo(PosX, PosY, TarX, TarY).
+
 
 /***************** Narazili jsme poprve prekazku ******************************/
 // Jsme ve spravne Y souradnici, ale potrebujeme obejit prekazku - musime
@@ -298,7 +341,7 @@ intention(scout). // Pocatecni zamer
 +!roundBar(PosX, PosY, TarX, TarY) <- 
 	-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
 	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);
-	!moveTo(PosX, PosY, TarX, TarY).
+	!moveTo(PosX, PosY, TarX, TarY).	
 
 /*============================================================================*/
 // Pred dosazenim cile, ukladam pozice, kde jsme byli, abychom se nevraceli.
@@ -307,6 +350,8 @@ intention(scout). // Pocatecni zamer
 +!my_do(X) <- do(X); .print("Divne, tady nikdy nemame byt.").
 
 	
+// PosX a PosY - aktualni pozice, X, Y - policko, kde jsme byli predtim
+
 // Prisli jsme shora -> nepujdeme znova nahoru, ale jdeme dolu
 +!decide(up_down, PosX, PosY, TarX, TarY): not was_there(PosX, PosY - 1)
 	& not obj(obs, PosX, PosY - 1)
@@ -364,18 +409,16 @@ intention(scout). // Pocatecni zamer
 // Zkusili jsme vsechny smery a nic - vymazeme ze jsme byli v nejblizsim okoli
 // a zkusime se znovu pohnout
 +!decide2(_, PosX, PosY, TarX, TarY) <- 
-	/*-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
-	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);*/!delete_ws;
+	-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
+	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);//!delete_ws;
 	!moveTo(PosX, PosY, TarX, TarY).
 
-//------------------- Konec Decide 2 -----------------------------------------//
-
-
+//------------------- Konec Decide 2 -----------------------------------------//	
 +!decide(left_right, PosX, PosY, TarX, TarY) 
 	<- .print("Tady bychom se nemeli nikdy ocitnout :-D.").
 +!decide(up_down, PosX, PosY, TarX, TarY) 
 	<- .print("Tady bychom se nemeli nikdy ocitnout :-D.").
-
+	
 +!delete_ws: was_there(_, _) <- -was_there(_, _); !delete_ws.
 +!delete_ws.
 
