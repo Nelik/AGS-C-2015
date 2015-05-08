@@ -421,17 +421,19 @@ aStarDone(0).
 	.findall([X,Y], path(X,Y), ReversedPath);
 	.reverse(ReversedPath, Path);
 	.println("Path: ", Path);
-	-aStarDone(_);
-	+aStarDone(1);
-	.length(Path, PL);
-	for(.range(P, 0, PL - 1))
-	{
-		.nth(P, Path, PathPoint);
-		.nth(0, PathPoint, NewX);
-		.nth(1, PathPoint, NewY);
-		?pos(ActualX, ActualY);
-		+intention(goTo, NewX, NewY);
-	}.
+	//-aStarDone(_);
+	//+aStarDone(1);
+	//.length(Path, PL);
+	//for(.range(P, 0, PL - 1))
+	//{
+	//}.
+	.nth(0, Path, PathPoint);
+	.nth(0, PathPoint, NewX);
+	.nth(1, PathPoint, NewY);
+	?pos(ActualX, ActualY);
+	//+intention(goTo, NewX, NewY);
+	!moveTo(ActualX,ActualY,NewX,NewY);
+	.
 
 
 // Pohyb na [X,Y] bunku
@@ -448,5 +450,5 @@ aStarDone(0).
 +!moveTo(PosX,PosY,TarX,TarY) : PosY < TarY <- do(down); !onDepotInit.
 +!moveTo(PosX,PosY,TarX,TarY) : PosY > TarY <- do(up); !onDepotInit.
 //+!moveTo(PosX,PosY,TarX,TarY). // Uz jsem na miste: PosX == TarX & PosY == TarY
-+!moveTo(PosX,PosY,TarX,TarY): true <- .println("HERE I AM!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"); -aStarDone(_); +aStarDone(0); !clearIntention.
++!moveTo(PosX,PosY,TarX,TarY) <- !onDepotInit.
 
