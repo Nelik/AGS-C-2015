@@ -4,30 +4,21 @@
 // !!!                                                                       !!!
 // !!!  Fast a Middle jsou temer totozni agenti z pohledu kodu. Slow agent   !!!
 // !!!  navic odesila prikazy ostatnim.                                      !!!
-/* =========================== POCATECNY ZNALOSTI =========================== */
+/* =========================== POCATECNI ZNALOSTI =========================== */
 
 range(3). // Ulozeni vzdalenosti, protoze implicitne neni ulozena.
 commander(aSlow).
-aStarDone(0).
 
-//intention(scout). // Pocatecni zamer
+intention(scout). // Pocatecni zamer
 
 /* ============================== INICIALIZACE ============================== */
 !init.
 
 // Inicializace baze znalosti
 @init[atomic] +!init <-
-	+obj(obstacle,12,3);
-	+obj(obstacle,13,3);
-	+obj(obstacle,14,3);
-	+obj(obstacle,15,3);
-	+obj(obstacle,16,3);
-	+intention(goTo,14,5);
-    !onDepotInit;
     !initUnknown;
-    !lookAround.
-	//!intentionGoTo(14,0).
-    //!sendAchieveToAll(intentionScout). //? Ukazkove zadani prikazu
+    !lookAround;
+    !sendAchieveToAll(intentionScout). //? Ukazkove zadani prikazu
 
 // Inicializace nenavstivenych bunek
 +!initUnknown : grid_size(GX,GY) & depot(DX,DY) <-
@@ -55,14 +46,12 @@ aStarDone(0).
 
 // Macro, protoze doStep uz byl a potrebuju k nemu pribalit !lookAround.
 @macroStep[atomic] +!doMacroStep <- !lookAround; !giveCommands; !doIntention.
-//@macroStep[atomic] +!doMacroStep <- !lookAround; !doIntention.
-//@macroStep[atomic] +!doMacroStep <- !doIntention.
 
 // Provadeni akci na zaklade aktualniho zameru
 +!doIntention : intention(scout)    <- !scout.
 +!doIntention : intention(goTo,X,Y) <- !goTo(X,Y).
-+!doIntention : intention(pick,X,Y) <- !pick(X,Y). // !!! ZATIM JEN NASTIN !!!
-+!doIntention : intention(unload)   <- !unload.
++!doIntention : intention(pick,X,Y) <- !pick(X,Y).
++!doIntention : intention(unload)   <- !onDepotInit; !unload.
 +!doIntention : intention(idle)     <- do(skip).
 +!doIntention : true                <- !chooseNextIntention.
 
@@ -163,9 +152,9 @@ aStarDone(0).
 +!checkUnknown(X,Y). // O prazdnem miste uz vime
 
 // Aktualizace znalosti o prekazkach
-+!checkObstacle(X,Y) : obstacle(X,Y) & not obj(obstacle,X,Y) <- // Nova prekazka
-    +obj(obstacle,X,Y);
-    !sendObjectInfo(obstacle,X,Y,add). 
++!checkObstacle(X,Y) : obstacle(X,Y) & not obj(obs,X,Y) <- // Nova prekazka
+    +obj(obs,X,Y); 
+    !sendObjectInfo(obs,X,Y,add). 
 +!checkObstacle(X,Y). // Prekazka tady neni
 
 // Aktualizace znalosti o zlate
@@ -188,24 +177,13 @@ aStarDone(0).
 
 
 /* ============= AKCE PRO ODESLANI/PRIJMUNI INFOMACI O PROSTORU ============= */
-+!lookAround : pos(PosX,PosY) & range(R) <- 
-    for (.range(X, PosX - R, PosX + R)) // Cyklus pres viditelne bunky
-    {
-        for (.range(Y, PosY - R, PosY + R))
-        {
-            !checkUnknown(X,Y);
-            !checkObstacle(X,Y);
-            !checkGold(X,Y);
-            !checkWood(X,Y);
-        }
-    }.
 
 // Nacteni vsech friendu z baze znalosti
-+!sendAchieveToAll(Action) <- true.
-    //for (friend(Agent)) 
-    //{
-    //    .send(Agent, achieve, Action);
-    //}.
++!sendAchieveToAll(Action) <-
+    for (friend(Agent)) 
+    {
+        //.send(Agent, achieve, Action);
+    }.
 
 // Temer zbytecne akce, rovnou by slo psat sendAchieveToAll
 +!sendDiscoverInfo(X,Y) <- !sendAchieveToAll(recvDiscoverInfo(X,Y)).
@@ -303,19 +281,37 @@ aStarDone(0).
 +!getNeigborsOfCurrent(Current, Neighbors): grid_size(GX, GY) <-
 	.nth(0, Current, CurrentX);
 	.nth(1, Current, CurrentY);
+	?aStarGoal(GoalX, GoalY);
 	for(.range(X, CurrentX-1, CurrentX+1))
 	{
-		if (not obj(obstacle, X, CurrentY) & X \==CurrentX & X >= 0 & X < GX)
+		if (not obj(obs, X, CurrentY) & X \==CurrentX & X >= 0 & X < GX)
 		{
 			+neighbor(X, CurrentY, CurrentX, CurrentY);
 		}
 	}
 	for(.range(Y, CurrentY-1, CurrentY+1))
 	{
-		if(not obj(obstacle, CurrentX, Y) & Y \== CurrentY & Y >= 0 & Y < GY)
+		if(not obj(obs, CurrentX, Y) & Y \== CurrentY & Y >= 0 & Y < GY)
 		{
 			+neighbor(CurrentX,Y, CurrentX, CurrentY);
 		}
+	}
+	if (obj(obs, GoalX, GoalY))
+	{
+		.println("Goal is obstacle!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+		.drop_all_events;
+		.drop_all_desires;
+		.drop_all_intentions;
+		.abolish(neighbor(_,_,_,_));
+		.abolish(openSet(_,_,_,_,_,_));
+		.abolish(closedSet(_,_,_,_,_,_));
+		-lowestFn(_); -currentNodePosition(_,_); -currentNode(_,_,_,_,_,_);
+		-actualX(_);
+		-actualY(_);
+		-continue(_);
+		-aStarGoal(_,_);
+		-subStepDone(_);
+		!intentionScout;
 	}
 	.findall([X,Y,Px,Py,0,0],neighbor(X,Y,Px,Py), Neighbors);
 	.abolish(neighbor(_,_,_,_)).
@@ -332,10 +328,12 @@ aStarDone(0).
 		?currentNodePosition(Nx, Ny);
 		if (TarX == Nx & TarY == Ny)
 		{
+			.println("Do NOT continue!!");
 			+continue(0);		
 		}
 		else
 		{
+			.println("Do continue!!");
 			+continue(1);
 		}
 		if (continue(1)){
@@ -357,7 +355,7 @@ aStarDone(0).
 					if(Cost < CostG)
 					{
 						//remove neighbor from OPEN, because new path is better
-						.println("remove neighbor from OPEN, because new path is better");
+						//.println("remove neighbor from OPEN, because new path is better");
 						-openSet(Neix, Neiy, Neipx, Neipy, _, _);
 					}
 				}
@@ -366,7 +364,7 @@ aStarDone(0).
 					if(Cost < Ng)
 					{
 						//remove neighbor from CLOSED
-						.println("remove neighbor from CLOSED");
+						//.println("remove neighbor from CLOSED");
 						-closedSet(Neix, Neiy, _, _, Ng, _);
 					}
 				}
@@ -418,9 +416,14 @@ aStarDone(0).
 	.abolish(openSet(_,_,_,_,_,_));
 	.abolish(closedSet(_,_,_,_,_,_));
 	-lowestFn(_); -currentNodePosition(_,_); -currentNode(_,_,_,_,_,_);
+	-actualX(_);
+	-actualY(_);
+	-continue(_);
+	-aStarGoal(_,_);
 	.findall([X,Y], path(X,Y), ReversedPath);
 	.reverse(ReversedPath, Path);
 	.println("Path: ", Path);
+	.abolish(path(_,_));
 	//-aStarDone(_);
 	//+aStarDone(1);
 	//.length(Path, PL);
@@ -431,20 +434,32 @@ aStarDone(0).
 	.nth(0, PathPoint, NewX);
 	.nth(1, PathPoint, NewY);
 	?pos(ActualX, ActualY);
+	if (ActualX == NewX & ActualY == NewY)
+	{
+		.delete(0, Path, Path1);
+		.nth(0, Path1, PathPoint1);
+		.nth(0, PathPoint1, NewX1);
+		.nth(1, PathPoint1, NewY1);
+		!moveTo(ActualX,ActualY,NewX1,NewY1);
+	}
+	else
+	{
+		!moveTo(ActualX,ActualY,NewX,NewY);
+	}
 	//+intention(goTo, NewX, NewY);
-	!moveTo(ActualX,ActualY,NewX,NewY);
 	.
 
 
 // Pohyb na [X,Y] bunku
 // calculate destination angle
-+!moveTo(TarX,TarY) : pos(PosX,PosY) & aStarDone(0) <- +aStarGoal(TarX, TarY); !aStar(PosX,PosY,TarX,TarY).
-+!moveTo(TarX,TarY) : pos(PosX,PosY) & aStarDone(1) <- !moveTo(PosX, PosY, TarX, TarY).
+//+!moveTo(TarX,TarY) : pos(PosX,PosY) & aStarDone(0) <- +aStarGoal(TarX, TarY); !aStar(PosX,PosY,TarX,TarY).
+//+!moveTo(TarX,TarY) : pos(PosX,PosY) & aStarDone(1) <- !moveTo(PosX, PosY, TarX, TarY).
 //+!moveTo(PosX,PosY,TarX,TarY) : PosX < TarX <- !tangBug(right,TarX,TarY); !onDepotInit.
 //+!moveTo(PosX,PosY,TarX,TarY) : PosX > TarX <- !tangBug(left,TarX,TarY); !onDepotInit.
 //+!moveTo(PosX,PosY,TarX,TarY) : PosY < TarY <- !tangBug(down,TarX,TarY); !onDepotInit.
 //+!moveTo(PosX,PosY,TarX,TarY) : PosY > TarY <- !tangBug(up,TarX,TarY); !onDepotInit.
 // Uz jsem na miste: PosX ==  TarX & PosY == TarY
++!moveTo(TarX,TarY) : pos(PosX,PosY) <- +aStarGoal(TarX, TarY); !aStar(PosX,PosY,TarX,TarY).
 +!moveTo(PosX,PosY,TarX,TarY) : PosX < TarX <- do(right); !onDepotInit.
 +!moveTo(PosX,PosY,TarX,TarY) : PosX > TarX <- do(left); !onDepotInit.
 +!moveTo(PosX,PosY,TarX,TarY) : PosY < TarY <- do(down); !onDepotInit.
