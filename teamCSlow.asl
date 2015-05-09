@@ -152,6 +152,10 @@ intention(scout). // Pocatecni zamer
 +!checkUnknown(X,Y). // O prazdnem miste uz vime
 
 // Aktualizace znalosti o prekazkach
++!checkObstacle(X,Y) : obstacle(X,Y) & not obj(obs,X,Y) & intention(_, TarX, TarY) <- // Nova prekazka
+    +obj(obs,X,Y); 
+	if(TarX == X & TarY == Y){!chooseNextIntention};
+    !sendObjectInfo(obs,X,Y,add). 
 +!checkObstacle(X,Y) : obstacle(X,Y) & not obj(obs,X,Y) <- // Nova prekazka
     +obj(obs,X,Y); 
     !sendObjectInfo(obs,X,Y,add). 
