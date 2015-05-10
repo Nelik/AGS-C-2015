@@ -90,19 +90,24 @@ intention(scout). // Pocatecni zamer
 +!giveCommands.
 
 /* ========================== IMPLEMENTACE PRIKAZU ========================== */
-
-// Agent pujde k prvni neprozkoumane bunce, kterou vytahne z baze znalosti.
-+!scout : unknown(_,_) <- // Porad existuji neprozkoumane bunky
+// Agent neprve prozkoumava okraj mapy a teprve potom se venuje stredu
+// stred agenti projdou castecne pri sbirani surovin
+// ignoruje bunky besprostredne u kraje a vybira takove aby videl az do konce plochy
++!scout : .findall(unknown(A,B), (unknown(A,B) & (((A>R & A<GX/4) | (A<GX-R & A<3*GX/4)) & ((B>R & B<GY/4) | (B<GY-R & B<3*GY/4)))), U) & .length(U, L) & L>0 <-
+	!getRandomFromFound(U, X, Y);
+	-intention(scout); 
+    +intention(goTo,X,Y).
+// Porad existuji neprozkoumane bunky
++!scout : .findall(unknown(A,B), unknown(A,B), U) & .length(R, L) & L>0 <- 
     !getRandomUnknown(X,Y);
     -intention(scout); 
     +intention(goTo,X,Y).
 +!scout : true <- -intention(scout).// Vsechny bunky byly prozkoumany
 
-+!getRandomUnknown(X,Y) <- 
-    .findall(unknown(A,B), unknown(A,B), Unknowns);  // Nacteni vsech neprozkoumanych bunek
-    .length(Unknowns, Length);                       // Pocet bunek
-    RandIndex = math.round(math.random(Length - 1)); // Nahodne zvolime bunku
-    .nth(RandIndex, Unknowns, unknown(X,Y)).         // Nacteni bunky ze seznamu
++!getRandomFromFound(L, X, Y) <-
+	.length(L, Length);
+	RandIndex = math.round(math.random(Length - 1)); // Nahodne zvolime bunku
+    .nth(RandIndex, L, unknown(X,Y)).
 
 // Prikaz k presunu na pozici [X,Y]
 +!goTo(X,Y) : pos(X,Y) <- !delete_ws; -intention(goTo,X,Y). // Uz jsme na miste
