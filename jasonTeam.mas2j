@@ -5,7 +5,7 @@
 MAS miners {
     infrastructure: Centralised
 	
-    environment: mining.MiningPlanet(5,100,yes)
+    environment: mining.MiningPlanet(2,100,yes)
         // parameters: 1. environment configuration id (from 1 to 6)
         //             2. sleep time (in ms) after each action
         //             3. whether display the gui
@@ -83,6 +83,14 @@ moves left			int x			Agentu zbyva x pohybu v tomto kole.
 moves per round		int x			Tento typ agenta ma x pohybu na kolo.
 pos					int x, int y	Pozice agenta je y.
 step				int x			Nachazime se v x-tem kole.
+
+ready				true			Kontrola, ze druhy agent je pripraven
+									zvednout surovinu
+was_there			int x, int y	Promenna pro obchazeni prekazek, aby 
+									nechodil tam, kde byl
+carry				wood/gold		Pro commandera, aby urcil pro co dalsiho
+									ma agent jit - nemuze jit pro drevo, pokud
+									zrovna nese zlato
 --------------------------------------------------------------------------------
 Nazev				Argumenty		Cena(PB)	Vyznam
 do(up)								1			Presune agenta nahoru.
