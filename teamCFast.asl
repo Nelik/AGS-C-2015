@@ -132,9 +132,13 @@ intention(idle). // Pocatecni zamer
 +!checkUnknown(X,Y). // O prazdnem miste uz vime
 
 // Aktualizace znalosti o prekazkach
++!checkObstacle(X,Y) : obstacle(X,Y) & not obj(obs,X,Y) & intention(_, X, Y) <- // Nova prekazka
+    +obj(obs,X,Y); 
+	!chooseNextIntention;
+    !sendObjectInfo(obs,X,Y,add).
 +!checkObstacle(X,Y) : obstacle(X,Y) & not obj(obs,X,Y) <- // Nova prekazka
     +obj(obs,X,Y); 
-    !sendObjectInfo(obs,X,Y,add). 
+    !sendObjectInfo(obs,X,Y,add).
 +!checkObstacle(X,Y). // Prekazka tady neni
 
 // Aktualizace znalosti o zlate
@@ -181,96 +185,131 @@ intention(idle). // Pocatecni zamer
 +!moveToDepot : depot(DX, DY) <- !moveTo(DX,DY).
 
 // Pohyb na [X,Y] bunku
-+!moveTo(TarX,TarY) : pos(PosX,PosY) <- !moveTo(PosX,PosY,TarX,TarY);
-	if(was_there(TarX, TarY)){!delete_ws}.
++!moveTo(TarX,TarY) : pos(PosX,PosY) 
+	<- if(was_there(TarX, TarY)){!delete_ws}; 
+	!moveTo(PosX,PosY,TarX,TarY).
 
 // Jsme na miste
 +!moveTo(PosX,PosY,TarX,TarY) : PosX == TarX & PosY == TarY <- !delete_ws. 
 
 
 +!moveTo(PosX,PosY,TarX,TarY) : not was_there(PosX + 1, PosY) & PosX < TarX 
-	& not obj(obs,PosX + 1, PosY) <- !my_do(right); -rounding(_).
+	& not obj(obs,PosX + 1, PosY) <- !my_do(right); -rounding(_); +rounding("R").
 	
 +!moveTo(PosX,PosY,TarX,TarY) : not was_there(PosX - 1, PosY) & PosX > TarX 
-	& not obj(obs,PosX - 1, PosY) <- !my_do(left); -rounding(_).
+	& not obj(obs,PosX - 1, PosY) <- !my_do(left); -rounding(_); +rounding("L").
 	
 +!moveTo(PosX,PosY,TarX,TarY) : not was_there(PosX, PosY + 1) & PosY < TarY 
-	& not obj(obs,PosX, PosY + 1) <- !my_do(down); -rounding(_).
+	& not obj(obs,PosX, PosY + 1) <- !my_do(down); -rounding(_); +rounding("D").
 	
 +!moveTo(PosX,PosY,TarX,TarY) : not was_there(PosX, PosY - 1) & PosY > TarY 
-	& not obj(obs,PosX, PosY-1) <- !my_do(up);	-rounding(_).
+	& not obj(obs,PosX, PosY-1) <- !my_do(up);	-rounding(_); +rounding("U").
 	
 +!moveTo(PosX,PosY,TarX,TarY) : true <- !roundBar(PosX, PosY, TarX, TarY).
 
 /*======================= OBCHAZENI PREKAZKY ================================ */
 // Obchazime prekazku smerem dolu, vime ze nemuzeme jit ve smeru cile doleva/doprava
 +!roundBar(PosX, PosY, TarX, TarY): rounding("D") 
-	& not was_there(PosX, PosY+1) 
+	& not was_there(PosX, PosY+1)  
 	& not obj(obs,PosX, PosY+1) 
-	<- !my_do(down).
+	<- .print ("Obchazim prekazku dolu pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY);
+	!my_do(down).
+
+// Obchazime prekazku smerem dolu, vime ze nemuzeme jit ve smeru cile doleva/doprava
++!roundBar(PosX, PosY, TarX, TarY): rounding("D") 
+	& not was_there(PosX, PosY+2) & not obj(obs,PosX, PosY+2)  
+	& not obj(obs,PosX, PosY+1) 
+	<- .print ("Obchazim prekazku dolu2 pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY); 
+	!my_do(down).
 	
 +!roundBar(PosX, PosY, TarX, TarY): rounding("U") 
-	& not was_there(PosX, PosY-1) 
+	& not was_there(PosX, PosY-1)
 	& not obj(obs,PosX, PosY-1) 
-	<- !my_do(up).
+	<- .print ("Obchazim prekazku nahoru pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY); 
+	!my_do(up).
+	
++!roundBar(PosX, PosY, TarX, TarY): rounding("U") 
+	& not was_there(PosX, PosY-2) & not obj(obs,PosX, PosY-2) 
+	& not obj(obs,PosX, PosY-1) 
+	<- .print ("Obchazim prekazku nahoru2 pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY); 
+	!my_do(up).
 	
 +!roundBar(PosX, PosY, TarX, TarY): (rounding("U") | rounding("D")) 
-	& PosX <= TarX 
 	& not was_there(PosX-1, PosY)
 	& not obj(obs,PosX-1, PosY) 
-	<- -rounding(_); +rounding("L"); !my_do(left).
+	<- -rounding(_); +rounding("L"); .print ("Obchazim prekazku doleva z obchazeni U/D pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY);
+	!my_do(left).
 	
 +!roundBar(PosX, PosY, TarX, TarY): (rounding("U") | rounding("D")) 
-	& PosX >= TarX 
-	& not was_there(PosX+1, PosY) 
+	& not was_there(PosX+1, PosY)
 	& not obj(obs,PosX+1, PosY) 
-	<- -rounding(_); +rounding("R"); !my_do(right).
+	<- -rounding(_); +rounding("R"); .print ("Obchazim prekazku doprava z U/D pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY); 
+	!my_do(right).
 
 +!roundBar(PosX, PosY, TarX, TarY): rounding("D")
 	& not obj(obs,PosX, PosY+1) 
-	<- !my_do(down).
+	<- .print ("Obchazim prekazku dolu3 pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY);
+	!my_do(down).
 	
 +!roundBar(PosX, PosY, TarX, TarY): rounding("U") 
 	& not obj(obs,PosX, PosY-1) 
-	<- !my_do(up).
+	<- .print ("Obchazim prekazku nahoru3 pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY);
+	!my_do(up).
+
+// Obchazime zleva, pokracujeme doleva, pokud muzeme
++!roundBar(PosX, PosY, TarX, TarY): rounding("L") 
+	& not was_there(PosX-1, PosY)
+	& not obj(obs,PosX - 1, PosY) 
+	<- .print ("Obchazim prekazku doleva pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY); 
+	!my_do(left).
 	
 // Obchazime zleva, pokracujeme doleva, pokud muzeme
 +!roundBar(PosX, PosY, TarX, TarY): rounding("L") 
-	& not was_there(PosX-1, PosY) 
+	& not was_there(PosX-2, PosY) & not obj(obs,PosX-2, PosY)
 	& not obj(obs,PosX - 1, PosY) 
-	<- !my_do(left).
+	<- .print ("Obchazim prekazku doleva2 pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY); 
+	!my_do(left).
 
 // Obchazime zprava, pokracujeme doprava, pokud muzeme
 +!roundBar(PosX, PosY, TarX, TarY): rounding("R") 
-	& not was_there(PosX+1, PosY) 
+	& not was_there(PosX+1, PosY)
 	& not obj(obs,PosX+1, PosY) 
-	<- !my_do(right).
+	<- .print ("Obchazim prekazku doprava pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY); 
+	!my_do(right).
+	
++!roundBar(PosX, PosY, TarX, TarY): rounding("R") 
+	& not was_there(PosX+2, PosY) & not obj(obs,PosX+2, PosY)
+	& not obj(obs,PosX+1, PosY) 
+	<- .print ("Obchazim prekazku doprava2 pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY); 
+	!my_do(right).
 	
 +!roundBar(PosX, PosY, TarX, TarY): (rounding("L") | rounding("R")) 
-	& PosY <= TarY
 	& not was_there(PosX, PosY-1)
 	& not obj(obs,PosX, PosY-1) 
-	<- -rounding(_); +rounding("U"); !my_do(up).
+	<- -rounding(_); +rounding("U"); .print ("Obchazim prekazku dolu z L/R pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY); 
+	!my_do(up).
 	
-+!roundBar(PosX, PosY, TarX, TarY): (rounding("L") | rounding("R")) 
-	& PosY >= TarY
++!roundBar(PosX, PosY, TarX, TarY): (rounding("L") | rounding("R"))
 	& not was_there(PosX, PosY+1)
 	& not obj(obs,PosX, PosY+1) 
-	<- -rounding(_); +rounding("D"); !my_do(down).
+	<- -rounding(_); +rounding("D"); .print ("Obchazim prekazku nahoru z L/R pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY);
+	!my_do(down).
 	
 +!roundBar(PosX, PosY, TarX, TarY): rounding("L") 
 	& not obj(obs,PosX - 1, PosY) 
-	<- !my_do(left).
+	<- .print ("Obchazim prekazku doleva3 pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY);
+	!my_do(left).
 
 // Obchazime zprava, pokracujeme doprava, pokud muzeme
 +!roundBar(PosX, PosY, TarX, TarY): rounding("R") 
 	& not obj(obs,PosX + 1, PosY) 
-	<- !my_do(right).
+	<- .print ("Obchazim prekazku doprava3 pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY);
+	!my_do(right).
 	
 // Obchazime prekazku zleva/zprava, ale tam nemuzeme jit,
 // rozhodujeme se tedy jit nahoru, dolu?
 +!roundBar(PosX, PosY, TarX, TarY): rounding(_) 
-	<-  
+	<- -rounding(_);
 	-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
 	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);
 	!moveTo(PosX, PosY, TarX, TarY).
@@ -308,13 +347,13 @@ intention(idle). // Pocatecni zamer
 +!roundBar(PosX, PosY, TarX, TarY): PosX > TarX & PosY < TarY
 	& not was_there(PosX, PosY-1) & not obj(obs,PosX, PosY-1) 
 	<- +rounding("U"); !my_do(up).
-
+	
 // Zkusili jsme vsechny smery a nic - vymazeme ze jsme byli v nejblizsim okoli
 // a zkusime se znovu pohnout
-+!roundBar(PosX, PosY, TarX, TarY) <- 
+/*+!roundBar(PosX, PosY, TarX, TarY) <- 
 	-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
 	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);
-	!moveTo(PosX, PosY, TarX, TarY).	
+	!moveTo(PosX, PosY, TarX, TarY).*/	
 
 /*============================================================================*/
 // Pred dosazenim cile, ukladam pozice, kde jsme byli, abychom se nevraceli.
