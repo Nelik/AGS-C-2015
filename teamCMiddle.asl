@@ -89,9 +89,10 @@ intention(idle). // Pocatecni zamer
     -intention(pick,X,Y);
 	?carrying_capacity(CC); ?carrying_gold(CG); ?carrying_wood(CW);
 	if (CC-CG-CW > 0) {
+		?commander(C);
 		if (CG > 0) {.send(C, tell, carry(gold)) }
 		if (CW > 0) {.send(C, tell, carry(wood)) }
-		?commander(C); .send(C, achieve, commandDone(MN));
+		.send(C, achieve, commandDone(MN));
 	}
     else {+intention(unload)}.
 +!pick(X,Y) : pos(X,Y) <- do(skip). // Cekame na druheho agenta

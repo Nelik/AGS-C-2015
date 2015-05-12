@@ -8,3 +8,5 @@ jasonTeam.mas2j
 bin/build.xml
 bin/build.xml
 bin/build.xml
+bin/build.xml
+*.xml

@@ -89,10 +89,11 @@ intention(idle). // Pocatecni zamer
     -intention(pick,X,Y);
 	?carrying_capacity(CC); ?carrying_gold(CG); ?carrying_wood(CW);
 	if (CC-CG-CW > 0) {
+		?commander(C);
 		.send(C, tell, my_pos(PosX, PosY));	
 		if (CG > 0) {.send(C, tell, carry(gold)) }
 		if (CW > 0) {.send(C, tell, carry(wood)) }
-		?commander(C); .send(C, achieve, commandDone(MN));
+		.send(C, achieve, commandDone(MN));
 	}
     else {+intention(unload)}.
 +!pick(X,Y) : pos(X,Y) <- do(skip). // Cekame na druheho agenta
@@ -257,13 +258,13 @@ intention(idle). // Pocatecni zamer
 	!my_do(up).
 	
 +!roundBar(PosX, PosY, TarX, TarY): (rounding("U") | rounding("D")) 
-	& not was_there(PosX-1, _)
+	& not was_there(PosX-1, PosY)
 	& not obj(obs,PosX-1, PosY) 
 	<- -rounding(_); +rounding("L"); .print ("Obchazim prekazku doleva z obchazeni U/D pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY);
 	!my_do(left).
 	
 +!roundBar(PosX, PosY, TarX, TarY): (rounding("U") | rounding("D")) 
-	& not was_there(PosX+1, _)
+	& not was_there(PosX+1, PosY)
 	& not obj(obs,PosX+1, PosY) 
 	<- -rounding(_); +rounding("R"); .print ("Obchazim prekazku doprava z U/D pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY); 
 	!my_do(right).
@@ -306,13 +307,13 @@ intention(idle). // Pocatecni zamer
 	!my_do(right).
 	
 +!roundBar(PosX, PosY, TarX, TarY): (rounding("L") | rounding("R")) 
-	& not was_there(_, PosY-1)
+	& not was_there(PosX, PosY-1)
 	& not obj(obs,PosX, PosY-1) 
 	<- -rounding(_); +rounding("U"); .print ("Obchazim prekazku dolu z L/R pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY); 
 	!my_do(up).
 	
 +!roundBar(PosX, PosY, TarX, TarY): (rounding("L") | rounding("R"))
-	& not was_there(_, PosY+1)
+	& not was_there(PosX, PosY+1)
 	& not obj(obs,PosX, PosY+1) 
 	<- -rounding(_); +rounding("D"); .print ("Obchazim prekazku nahoru z L/R pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY);
 	!my_do(down).
