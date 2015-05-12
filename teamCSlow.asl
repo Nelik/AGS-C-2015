@@ -74,7 +74,7 @@ intention(scout). // Pocatecni zamer
 
 /* ============================= DAVANI PRIKAZU ============================= */
 
-+!clearCarry[source(SourceAgent)] : .term2string(SourceAgent, AgentName) <- 
++!clearCarry[source(SourceAgent)] <- 
     .abolish(carry(SourceAgent,_));
     +carry(SourceAgent, none).
   
@@ -218,7 +218,6 @@ intention(scout). // Pocatecni zamer
 
 // Zvednuti zdroje ze zeme (agent musi mit plny pocet pohybovych bodu).
 +!pick(X,Y) : pos(X,Y) & ally(X,Y) & moves_left(ML) & moves_per_round(ML) <- 
-  
    ?commander(C);
    .send(C, askOne, pos(_,_), pos(OFX,OFY));
     
@@ -244,7 +243,6 @@ intention(scout). // Pocatecni zamer
             +intention(unload)
         };
    }.
-   
 +!pick(X,Y) : pos(X,Y) <- do(skip). // Cekame na druheho agenta
 +!pick(X,Y) : true     <- !moveTo(X,Y).
 
@@ -292,6 +290,7 @@ intention(scout). // Pocatecni zamer
 // Aktualizace znalosti o prekazkach
 +!checkObstacle(X,Y) : obstacle(X,Y) & not obj(obs,X,Y) & intention(_, X, Y) <- // Nova prekazka
     +obj(obs,X,Y); 
+	!delete_ws;
 	-intention(_, X, Y);
     !sendObjectInfo(obs,X,Y,add).
 +!checkObstacle(X,Y) : obstacle(X,Y) & not obj(obs,X,Y) <- // Nova prekazka
@@ -348,7 +347,7 @@ intention(scout). // Pocatecni zamer
 
 // Reakce na objeveni zdroje
 +!recvObjectInfo(O,X,Y,AddRemove) : AddRemove == add    <- +obj(O,X,Y);
-	if(O == obs & intention(goTo, X, Y)) {-intention(_, X, Y)}. 
+	if(O == obs & intention(goTo, X, Y)) {!delete_ws; -intention(_, X, Y)}. 
 +!recvObjectInfo(O,X,Y,AddRemove) : AddRemove == remove <- -obj(O,X,Y);
 	if(intention(pick, X, Y)){!delete_ws; -intention(pick,X,Y); !delete_ws;
 	?commander(C); .my_name(MN); .send(C, achieve, commandDone(MN))}.	

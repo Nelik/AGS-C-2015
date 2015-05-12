@@ -67,9 +67,11 @@ intention(idle). // Pocatecni zamer
 +!doIntention : true                <- 
     !delete_ws; 
     !chooseNextIntention;
-    ?commander(C); // Nekdy se stane ze agent neudela commandDone, tak to 
-    .send(C, achieve, commandDone(MN)). // pojistime tady.
-
+	?carrying_gold(CG); ?carrying_wood(CW);
+	if (CG+CW > 0) {
+    	?commander(C); // Nekdy se stane ze agent neudela commandDone, tak to 
+		.send(C, achieve, commandDone(MN)); // pojistime tady.
+	}.
 +!chooseNextIntention : unknown(X,Y) <- +intention(scout). // Kdyz nic, tak scout
 +!chooseNextIntention : true         <- +intention(idle);.print("idle").
 
@@ -99,7 +101,7 @@ intention(idle). // Pocatecni zamer
     
    if (OFX == X & OFY == Y)
    {
-   		do(skip)
+   		do(skip);
    }
    else
    {
@@ -116,7 +118,7 @@ intention(idle). // Pocatecni zamer
         }
         else 
         {
-            +intention(unload)
+            +intention(unload);
         };
    }.
 +!pick(X,Y) : pos(X,Y) <- do(skip). // Cekame na druheho agenta
@@ -166,6 +168,7 @@ intention(idle). // Pocatecni zamer
 // Aktualizace znalosti o prekazkach
 +!checkObstacle(X,Y) : obstacle(X,Y) & not obj(obs,X,Y) & intention(_, X, Y) <- // Nova prekazka
     +obj(obs,X,Y); 
+	!delete_ws;
 	-intention(_, X, Y);
     !sendObjectInfo(obs,X,Y,add).
 +!checkObstacle(X,Y) : obstacle(X,Y) & not obj(obs,X,Y) <- // Nova prekazka
@@ -222,7 +225,7 @@ intention(idle). // Pocatecni zamer
 
 // Reakce na objeveni zdroje
 +!recvObjectInfo(O,X,Y,AddRemove) : AddRemove == add    <- +obj(O,X,Y);
-	if(O == obs & intention(goTo, X, Y)) {-intention(_, X, Y)}. 
+	if(O == obs & intention(goTo, X, Y)) {!delete_ws; -intention(_, X, Y)}. 
 +!recvObjectInfo(O,X,Y,AddRemove) : AddRemove == remove <- -obj(O,X,Y);
 	if(intention(pick, X, Y)){!delete_ws; -intention(pick,X,Y); !delete_ws;
 	?commander(C); .my_name(MN); .send(C, achieve, commandDone(MN))}.	
@@ -234,7 +237,7 @@ intention(idle). // Pocatecni zamer
 
 // Pohyb na [X,Y] bunku
 +!moveTo(TarX,TarY) : pos(PosX,PosY) 
-	<- if(was_there(TarX, TarY)){!delete_ws}; 
+	<- if(was_there(TarX, TarY)){!delete_ws;}; 
 	!moveTo(PosX,PosY,TarX,TarY).
 
 // Jsme na miste
