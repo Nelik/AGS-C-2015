@@ -47,11 +47,7 @@ intention(scout). // Pocatecni zamer
         +carry(F,none);
     }. 
 
-+!initCommander <-
-	for (friend(Agent)) 
-    {
-    	if (.substring("Slow",Agent)) {+commander(Agent)};    
-    }.
++!initCommander <- .my_name(MN); +commander(MN).
     
 /* =========================== KONEC INICIALIZACE =========================== */
 +step(X) <- +subStepDone(x).
@@ -99,7 +95,8 @@ intention(scout). // Pocatecni zamer
 
 // Oba agenti z nejakeho duvodu nesou ruzne zdroje, takze je treba je vylozit
 +!giveCommands : carry(_, wood) & carry(_,gold) <-
-    !sendAchieveToAll(intentionUnload);
+  	!sendAchieveToAll(intentionUnload);
+	.abolish(my_pos(_, _));
 	for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
     { 
         +pendingCommand(F)
@@ -107,26 +104,74 @@ intention(scout). // Pocatecni zamer
     
 // Oba agenti nesou drevo (nebo nic) -> posilame pro dalsi drevo    
 +!giveCommands : obj(wood,X,Y) & (carry(_,wood) | carry(_, none)) & not carry(_,gold) <- // Vime o nejakem dreve
-	!sendAchieveToAll(intentionPick(X,Y));
+	// Jestli zname pozici agentu, najdeme drevo, ktere je nejblize
+	if (my_pos(PosX, PosY)) {
+		
+		for (obj(wood, WX, WY)) 
+		{
+			ND = math.abs(WX-PosX) + math.abs(WY-PosY);
+			if (distance(D, TarX, TarY)) 
+			{			
+				if (D > ND)
+				{
+					-distance(D, TarX, TarY); +distance(ND, WX, WY)
+				}
+			}
+			else 
+			{					
+				+distance(ND, WX, WY)
+			}
+		}
+	}
+	if (my_pos(PosX, PosY)) {
+		?distance(D, TarX, TarY);
+		!sendAchieveToAll(intentionPick(TarX,TarY));
+	}
+	else {!sendAchieveToAll(intentionPick(X,Y))}
     for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
     { 
         +pendingCommand(F); 
     } 
+	-distance(_, _, _);
 	.abolish(my_pos(_, _)).
     
 // Oba agenti nesou zlato (nebo nic) -> posilame pro dalsi zlato  
 +!giveCommands : obj(gold,X,Y) & (carry(_,gold) | carry(_, none)) & not carry(_,wood) <- // Vime o nejakem zlate
-	!sendAchieveToAll(intentionPick(X,Y));
+	if (my_pos(PosX, PosY)) {
+		
+		for (obj(gold, GX, GY)) 
+		{
+			ND = math.abs(GX-PosX) + math.abs(GY-PosY);
+			if (distance(D, TarX, TarY)) 
+			{			
+				if (D > ND)
+				{
+					-distance(D, TarX, TarY); +distance(ND, GX, GY)
+				}
+			}
+			else 
+			{
+				+distance(ND, GX, GY)
+			}
+		}
+	}
+	if (my_pos(PosX, PosY)) {
+		?distance(D, TarX, TarY);
+		!sendAchieveToAll(intentionPick(TarX,TarY));
+	}
+	else {!sendAchieveToAll(intentionPick(X,Y))}
     for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
     { 
         +pendingCommand(F); 
     } 
+	-distance(_, _, _);
 	.abolish(my_pos(_, _)).
     
 
 // Mame info jenom o zlate a agenti nesou jen drevo
 +!giveCommands : obj(gold,X,Y) & carry(_,wood) & not carry(_,gold) <-
 	!sendAchieveToAll(intentionUnload);
+	.abolish(my_pos(_, _));
 	for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
     { 
         +pendingCommand(F)
@@ -135,6 +180,7 @@ intention(scout). // Pocatecni zamer
 // Mame info jenom o dreve a agenti nesou jen zlato
 +!giveCommands : obj(wood,X,Y) & carry(_,gold) & not carry(_,wood) <-
 	!sendAchieveToAll(intentionUnload);
+	.abolish(my_pos(_, _));
 	for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
     { 
         +pendingCommand(F)
@@ -143,6 +189,7 @@ intention(scout). // Pocatecni zamer
 // Nemame info o zadnem droji a agenti neco nesou
 +!giveCommands : carry(_,gold) | carry(_,wood) <-
 	!sendAchieveToAll(intentionUnload);
+	.abolish(my_pos(_, _));
 	for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
     { 
         +pendingCommand(F)
