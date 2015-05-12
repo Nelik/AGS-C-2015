@@ -43,7 +43,7 @@ intention(idle). // Pocatecni zamer
 +!initCommander <-
 	for (friend(Agent)) 
     {
-    	if (.substring(Agent,"Slow", 0)) {+commander(Agent)};    
+    	if (.substring("Slow",Agent)) {+commander(Agent)};    
     }.
 
 /* =========================== KONEC INICIALIZACE =========================== */
