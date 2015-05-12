@@ -332,9 +332,9 @@ intention(idle). // Pocatecni zamer
 // Obchazime prekazku zleva/zprava, ale tam nemuzeme jit,
 // rozhodujeme se tedy jit nahoru, dolu?
 +!roundBar(PosX, PosY, TarX, TarY): rounding(_) 
-	<- -rounding(_); !delete_ws;
-	/*-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
-	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);*/
+	<- -rounding(_); //!delete_ws;
+	-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
+	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);
 	!moveTo(PosX, PosY, TarX, TarY).
 
 

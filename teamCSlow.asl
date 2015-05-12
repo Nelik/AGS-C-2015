@@ -90,8 +90,12 @@ intention(scout). // Pocatecni zamer
     } 
 	.abolish(my_pos(_, _)).
 // Uz nemame stejny druh surovin, jaky agent prave nese
-+!giveCommands: carry(_) 
-	<- .abolish(carry(_)); .abolish(my_pos(_, _));
++!giveCommands: carry(_) <- 
+	.abolish(carry(_)); .abolish(my_pos(_, _));
+	for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
+    { 
+        +pendingCommand(F); 
+    } 
 	!sendAchieveToAll(intentionUnload).
 +!giveCommands. 
 
@@ -357,9 +361,9 @@ intention(scout). // Pocatecni zamer
 // Obchazime prekazku zleva/zprava, ale tam nemuzeme jit,
 // rozhodujeme se tedy jit nahoru, dolu?
 +!roundBar(PosX, PosY, TarX, TarY): rounding(_) 
-	<- -rounding(_); !delete_ws;
-	/*-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
-	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);*/
+	<- -rounding(_); //!delete_ws;
+	-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
+	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);
 	!moveTo(PosX, PosY, TarX, TarY).
 
 
