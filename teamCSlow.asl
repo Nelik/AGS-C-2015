@@ -7,7 +7,6 @@
 /* =========================== POCATECNI ZNALOSTI =========================== */
 
 range(3). // Ulozeni vzdalenosti, protoze implicitne neni ulozena.
-commander(aSlow).
 
 intention(scout). // Pocatecni zamer
 
@@ -18,6 +17,8 @@ intention(scout). // Pocatecni zamer
 @init[atomic] +!init <-
     !initUnknown;
     !lookAround;
+    !initCarry;
+    !initCommander;
     !sendAchieveToAll(intentionScout). //? Ukazkove zadani prikazu
 
 // Inicializace nenavstivenych bunek
@@ -40,6 +41,18 @@ intention(scout). // Pocatecni zamer
 +!onDepotInit : pos(PX,PY) & depot(DX,DY) & PX == DX & PY == DY <- -onDepot(_); +onDepot(true).
 +!onDepotInit : true                                            <- -onDepot(_); +onDepot(false).
 
++!initCarry <- 
+    for (friend(F))
+    { 
+        +carry(F,none);
+    }. 
+
++!initCommander <-
+	for (friend(Agent)) 
+    {
+    	if (.substring(Agent,"Slow", 0)) {+commander(Agent)};    
+    }.
+    
 /* =========================== KONEC INICIALIZACE =========================== */
 +step(X) <- +subStepDone(x).
 
@@ -65,40 +78,77 @@ intention(scout). // Pocatecni zamer
 
 /* ============================= DAVANI PRIKAZU ============================= */
 
++!clearCarry[source(SourceAgent)] : .term2string(SourceAgent, AgentName) <- 
+    .abolish(carry(SourceAgent,_));
+    +carry(SourceAgent, none).
+  
+    
++!setCarry(Obj)[source(SourceAgent)] <-
+    -carry(SourceAgent, _);
+    +carry(SourceAgent, Obj).
+       
+
 // Tuhle akci agenti volaji az dokonci aktualni ukol.
 +!commandDone(Agent) <- -pendingCommand(Agent); !giveCommands.
-+!receive_carry(Material) <- +carry(Material).
+        
 // Velice jednoduche davani prikazu. Agent ceka dokud vsichni agenti splnili
 // svuj ukol a pote jim zada co maji jit zvednout (verze davani prikazu hned
 // jak ukol dokonci nefunguje, protoze se muze stat ze agenty posle na ruzna
 // mista).
 +!giveCommands : pendingCommand(_). // Cekame na dokonceni vsech prikazu
-+!giveCommands : obj(wood,X,Y) & not carry(gold) <- // Vime o nejakem dreve
-    .abolish(carry(_));
-	!sendAchieveToAll(intentionPick(X,Y));
-    for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
-    { 
-        +pendingCommand(F); 
-    } 
-	.abolish(my_pos(_, _)).
-+!giveCommands : obj(gold,X,Y) & not carry(wood) <- // Vime o nejakem zlate
-    .abolish(carry(_));
-	!sendAchieveToAll(intentionPick(X,Y));
-    for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
-    { 
-        +pendingCommand(F); 
-    } 
-	.abolish(my_pos(_, _)).
-// Uz nemame stejny druh surovin, jaky agent prave nese
-+!giveCommands: carry(_) <- 
-	.abolish(carry(_)); .abolish(my_pos(_, _));
-	!sendAchieveToAll(intentionUnload);
+
+// Oba agenti z nejakeho duvodu nesou ruzne zdroje, takze je treba je vylozit
++!giveCommands : carry(_, wood) & carry(_,gold) <-
+    !sendAchieveToAll(intentionUnload);
 	for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
     { 
         +pendingCommand(F)
     }. 
-	
-+!giveCommands. 
+    
+// Oba agenti nesou drevo (nebo nic) -> posilame pro dalsi drevo    
++!giveCommands : obj(wood,X,Y) & (carry(_,wood) | carry(_, none)) & not carry(_,gold) <- // Vime o nejakem dreve
+	!sendAchieveToAll(intentionPick(X,Y));
+    for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
+    { 
+        +pendingCommand(F); 
+    } 
+	.abolish(my_pos(_, _)).
+    
+// Oba agenti nesou zlato (nebo nic) -> posilame pro dalsi zlato  
++!giveCommands : obj(gold,X,Y) & (carry(_,gold) | carry(_, none)) & not carry(_,wood) <- // Vime o nejakem zlate
+	!sendAchieveToAll(intentionPick(X,Y));
+    for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
+    { 
+        +pendingCommand(F); 
+    } 
+	.abolish(my_pos(_, _)).
+    
+
+// Mame info jenom o zlate a agenti nesou jen drevo
++!giveCommands : obj(gold,X,Y) & carry(_,wood) & not carry(_,gold) <-
+	!sendAchieveToAll(intentionUnload);
+	for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
+    { 
+        +pendingCommand(F)
+    }.
+     
+// Mame info jenom o dreve a agenti nesou jen zlato
++!giveCommands : obj(wood,X,Y) & carry(_,gold) & not carry(_,wood) <-
+	!sendAchieveToAll(intentionUnload);
+	for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
+    { 
+        +pendingCommand(F)
+    }.
+ 
+// Nemame info o zadnem droji a agenti neco nesou
++!giveCommands : carry(_,gold) | carry(_,wood) <-
+	!sendAchieveToAll(intentionUnload);
+	for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
+    { 
+        +pendingCommand(F)
+    }.
+
++!giveCommands.
 
 /* ========================== IMPLEMENTACE PRIKAZU ========================== */
 
@@ -127,8 +177,8 @@ intention(scout). // Pocatecni zamer
 	?carrying_capacity(CC); ?carrying_gold(CG); ?carrying_wood(CW);
 	if (CC-CG-CW > 0) {
 		?commander(C); .my_name(MN);
-		if (CG > 0) {.send(C, achieve, receive_carry(gold)) }
-		if (CW > 0) {.send(C, tell, receive_carry(wood)) }
+		if (CG > 0) {.send(C, tell, carry(gold)) }
+		if (CW > 0) {.send(C, tell, carry(wood)) }
 		.send(C, achieve, commandDone(MN));
 	}
     else {+intention(unload)}.
