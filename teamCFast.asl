@@ -83,18 +83,19 @@ intention(idle). // Pocatecni zamer
 +!goTo(X,Y) : true     <- !moveTo(X,Y).         // Porad tam nejsme
 
 // Zvednuti zdroje ze zeme (agent musi mit plny pocet pohybovych bodu).
-+!pick(X,Y) : pos(X,Y) & ready(_) & ally(X, Y) & moves_left(ML) & moves_per_round(ML) <- 
-    !delete_ws;
++!pick(X,Y) : pos(X,Y) &  ally(X, Y) & moves_left(ML) & moves_per_round(ML) <- 
+	!delete_ws;
 	do(pick); 
     -intention(pick,X,Y);
-	.abolish(ready(_));
 	?carrying_capacity(CC); ?carrying_gold(CG); ?carrying_wood(CW);
-	if (CC-CG-CW > 0) {?commander(C); .send(C, achieve, commandDone(MN));
-	.send(C, tell, my_pos(PosX, PosY));
-	if (CG > 0) {.send(C, tell, carry(gold)) }
-	if (CW > 0) {.send(C, tell, carry(wood)) }}
+	if (CC-CG-CW > 0) {
+		.send(C, tell, my_pos(PosX, PosY));	
+		if (CG > 0) {.send(C, tell, carry(gold)) }
+		if (CW > 0) {.send(C, tell, carry(wood)) }
+		?commander(C); .send(C, achieve, commandDone(MN));
+	}
     else {+intention(unload)}.
-+!pick(X,Y) : pos(X,Y) <- !sendToAll(ready(true)); do(skip). // Cekame na druheho agenta
++!pick(X,Y) : pos(X,Y) <- do(skip). // Cekame na druheho agenta
 +!pick(X,Y) : true     <- !moveTo(X,Y).
 
 // Vyprazdneni agenta (agent musi mit plny pocet pohybovych bodu).
@@ -140,7 +141,7 @@ intention(idle). // Pocatecni zamer
 // Aktualizace znalosti o prekazkach
 +!checkObstacle(X,Y) : obstacle(X,Y) & not obj(obs,X,Y) & intention(_, X, Y) <- // Nova prekazka
     +obj(obs,X,Y); 
-	!chooseNextIntention;
+	-intention(_, X, Y);
     !sendObjectInfo(obs,X,Y,add).
 +!checkObstacle(X,Y) : obstacle(X,Y) & not obj(obs,X,Y) <- // Nova prekazka
     +obj(obs,X,Y); 
@@ -155,7 +156,7 @@ intention(idle). // Pocatecni zamer
     -obj(gold,X,Y); 
     !sendObjectInfo(gold,X,Y,remove);
 	// Byl to nas cil - tak cil splnen, zadame o novy
-	if(intention(pick, X, Y)){-intention(pick,X,Y); .abolish(ready(_));!delete_ws; 
+	if(intention(pick, X, Y)){!delete_ws; -intention(pick,X,Y); !delete_ws; 
 	?commander(C); .send(C, achieve, commandDone(MN))}. 
 +!checkGold(X,Y). // Zlato tady neni
 
@@ -167,7 +168,7 @@ intention(idle). // Pocatecni zamer
     -obj(wood,X,Y); 
     !sendObjectInfo(wood,X,Y,remove);
 	// Byl to nas cil - tak cil splnen, zadame o novy
-	if(intention(pick, X, Y)){-intention(pick,X,Y); .abolish(ready(_));!delete_ws;
+	if(intention(pick, X, Y)){!delete_ws; -intention(pick,X,Y); !delete_ws;
 	?commander(C); .send(C, achieve, commandDone(MN))}. 
 +!checkWood(X,Y). // Drevo taky neni
 
@@ -195,9 +196,10 @@ intention(idle). // Pocatecni zamer
 +!recvDiscoverInfo(X,Y) <- -unknown(X,Y).
 
 // Reakce na objeveni zdroje
-+!recvObjectInfo(O,X,Y,AddRemove) : AddRemove == add    <- +obj(O,X,Y).
++!recvObjectInfo(O,X,Y,AddRemove) : AddRemove == add    <- +obj(O,X,Y);
+	if(O == obs & intention(goTo, X, Y)) {-intention(_, X, Y)}. 
 +!recvObjectInfo(O,X,Y,AddRemove) : AddRemove == remove <- -obj(O,X,Y);
-	if(intention(pick, X, Y)){-intention(pick,X,Y); .abolish(ready(_));!delete_ws;
+	if(intention(pick, X, Y)){!delete_ws; -intention(pick,X,Y); !delete_ws;
 	?commander(C); .send(C, achieve, commandDone(MN))}.	
 
 /* ================================= POHYB ================================== */
@@ -215,7 +217,7 @@ intention(idle). // Pocatecni zamer
 
 
 +!moveTo(PosX,PosY,TarX,TarY) : not was_there(PosX + 1, PosY) & PosX < TarX 
-	& not obj(obs,PosX + 1, PosY) <- !my_do(right); -rounding(_); +rounding("R").
+	& not obj(obs,PosX + 1, PosY)  <- !my_do(right); -rounding(_); +rounding("R").
 	
 +!moveTo(PosX,PosY,TarX,TarY) : not was_there(PosX - 1, PosY) & PosX > TarX 
 	& not obj(obs,PosX - 1, PosY) <- !my_do(left); -rounding(_); +rounding("L").
@@ -227,7 +229,6 @@ intention(idle). // Pocatecni zamer
 	& not obj(obs,PosX, PosY-1) <- !my_do(up);	-rounding(_); +rounding("U").
 	
 +!moveTo(PosX,PosY,TarX,TarY) : true <- !roundBar(PosX, PosY, TarX, TarY).
-
 /*======================= OBCHAZENI PREKAZKY ================================ */
 // Obchazime prekazku smerem dolu, vime ze nemuzeme jit ve smeru cile doleva/doprava
 +!roundBar(PosX, PosY, TarX, TarY): rounding("D") 
@@ -256,13 +257,13 @@ intention(idle). // Pocatecni zamer
 	!my_do(up).
 	
 +!roundBar(PosX, PosY, TarX, TarY): (rounding("U") | rounding("D")) 
-	& not was_there(PosX-1, PosY)
+	& not was_there(PosX-1, _)
 	& not obj(obs,PosX-1, PosY) 
 	<- -rounding(_); +rounding("L"); .print ("Obchazim prekazku doleva z obchazeni U/D pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY);
 	!my_do(left).
 	
 +!roundBar(PosX, PosY, TarX, TarY): (rounding("U") | rounding("D")) 
-	& not was_there(PosX+1, PosY)
+	& not was_there(PosX+1, _)
 	& not obj(obs,PosX+1, PosY) 
 	<- -rounding(_); +rounding("R"); .print ("Obchazim prekazku doprava z U/D pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY); 
 	!my_do(right).
@@ -305,13 +306,13 @@ intention(idle). // Pocatecni zamer
 	!my_do(right).
 	
 +!roundBar(PosX, PosY, TarX, TarY): (rounding("L") | rounding("R")) 
-	& not was_there(PosX, PosY-1)
+	& not was_there(_, PosY-1)
 	& not obj(obs,PosX, PosY-1) 
 	<- -rounding(_); +rounding("U"); .print ("Obchazim prekazku dolu z L/R pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY); 
 	!my_do(up).
 	
 +!roundBar(PosX, PosY, TarX, TarY): (rounding("L") | rounding("R"))
-	& not was_there(PosX, PosY+1)
+	& not was_there(_, PosY+1)
 	& not obj(obs,PosX, PosY+1) 
 	<- -rounding(_); +rounding("D"); .print ("Obchazim prekazku nahoru z L/R pozice: ", PosX, " ", PosY, " tar: ", TarX, TarY);
 	!my_do(down).
@@ -330,9 +331,9 @@ intention(idle). // Pocatecni zamer
 // Obchazime prekazku zleva/zprava, ale tam nemuzeme jit,
 // rozhodujeme se tedy jit nahoru, dolu?
 +!roundBar(PosX, PosY, TarX, TarY): rounding(_) 
-	<- -rounding(_);
-	-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
-	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);
+	<- -rounding(_); !delete_ws;
+	/*-was_there(PosX+1, PosY); -was_there(PosX, PosY+1); 
+	-was_there(PosX-1, PosY); -was_there(PosX, PosY-1);*/
 	!moveTo(PosX, PosY, TarX, TarY).
 
 
@@ -386,12 +387,12 @@ intention(idle). // Pocatecni zamer
 // PosX a PosY - aktualni pozice, X, Y - policko, kde jsme byli predtim
 
 // Prisli jsme shora -> nepujdeme znova nahoru, ale jdeme dolu
-+!decide(up_down, PosX, PosY, TarX, TarY): not was_there(PosX, PosY - 1)
++!decide(up_down, PosX, PosY, TarX, TarY): not was_there(_, PosY - 1)
 	& not obj(obs, PosX, PosY - 1)
 	<- !my_do(up); +rounding("U").
 
 // Prisli jsme zdola -> nepujdeme znova dolu, ale jdeme nahoru	
-+!decide(up_down, PosX, PosY, TarX, TarY): not was_there(PosX, PosY + 1) 
++!decide(up_down, PosX, PosY, TarX, TarY): not was_there(_, PosY + 1) 
 	& not obj(obs, PosX, PosY + 1)
 	<- !my_do(down); +rounding("D").
 
@@ -400,12 +401,12 @@ intention(idle). // Pocatecni zamer
 
 
 // Prisli jsme zprava -> nepujdeme znova doprava, ale jdeme doleva
-+!decide(left_right, PosX, PosY, TarX, TarY): not was_there(PosX - 1, PosY) 
++!decide(left_right, PosX, PosY, TarX, TarY): not was_there(PosX - 1, _) 
 	& not obj(obs, PosX - 1, PosY)
 	<- !my_do(left); +rounding("L").	
 
 // Prisli jsme zleva -> nepujdeme znova doleva, ale jdeme doprava
-+!decide(left_right, PosX, PosY, TarX, TarY): not was_there(PosX + 1, PosY) 
++!decide(left_right, PosX, PosY, TarX, TarY): not was_there(PosX + 1, _) 
 	& not obj(obs, PosX + 1, PosY)
 	<- !my_do(right); +rounding("R").	
 
