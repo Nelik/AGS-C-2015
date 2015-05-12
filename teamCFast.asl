@@ -100,6 +100,7 @@ intention(idle). // Pocatecni zamer
     
    if (OFX == X & OFY == Y)
    {
+   		do(skip)
    }
    else
    {

@@ -217,18 +217,34 @@ intention(scout). // Pocatecni zamer
 +!goTo(X,Y) : true     <- !moveTo(X,Y).         // Porad tam nejsme
 
 // Zvednuti zdroje ze zeme (agent musi mit plny pocet pohybovych bodu).
-+!pick(X,Y) : pos(X,Y) &  ally(X, Y) & moves_left(ML) & moves_per_round(ML) <- 
-	!delete_ws;
-	do(pick); 
-    -intention(pick,X,Y);
-	?carrying_capacity(CC); ?carrying_gold(CG); ?carrying_wood(CW);
-	if (CC-CG-CW > 0) {
-		?commander(C); .my_name(MN);
-		if (CG > 0) {.send(C, tell, carry(gold)) }
-		if (CW > 0) {.send(C, tell, carry(wood)) }
-		.send(C, achieve, commandDone(MN));
-	}
-    else {+intention(unload)}.
++!pick(X,Y) : pos(X,Y) & ally(X,Y) & moves_left(ML) & moves_per_round(ML) <- 
+  
+   ?commander(C);
+   .send(C, askOne, pos(_,_), pos(OFX,OFY));
+    
+   if (OFX == X & OFY == Y)
+   {
+   		do(skip)
+   }
+   else
+   {
+        !delete_ws;
+        do(pick);
+        -intention(pick,X,Y);
+        ?carrying_capacity(CC); ?carrying_gold(CG); ?carrying_wood(CW);
+        if (CC-CG-CW > 0) 
+        {
+            ?commander(C); .my_name(MN);
+            if (CG > 0) {.send(C, achieve, setCarry(gold))}
+            if (CW > 0) {.send(C, achieve, setCarry(wood))}
+            .send(C, achieve, commandDone(MN));
+        }
+        else 
+        {
+            +intention(unload)
+        };
+   }.
+   
 +!pick(X,Y) : pos(X,Y) <- do(skip). // Cekame na druheho agenta
 +!pick(X,Y) : true     <- !moveTo(X,Y).
 
@@ -237,6 +253,7 @@ intention(scout). // Pocatecni zamer
     do(drop); 
 	!delete_ws;
     -intention(unload);
+    .send(C, achieve, clearCarry);
     .send(C, achieve, commandDone(MN)).
 +!unload : onDepot(true)  <- !delete_ws; do(skip).
 +!unload : onDepot(false) <- !moveToDepot.
