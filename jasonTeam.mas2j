@@ -14,9 +14,9 @@ MAS miners {
 		aSlow teamCSlow;
 		aMiddle teamCMiddle;
 		aFast teamCFast;
-		bSlow teamySlow;
-		bMiddle teamyMiddle;
-		bFast teamyFast;
+		bSlow teamCSlow;
+		bMiddle teamCMiddle;
+		bFast teamCFast;
 }
 
 /* =============================================================================

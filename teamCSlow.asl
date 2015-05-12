@@ -7,7 +7,6 @@
 /* =========================== POCATECNI ZNALOSTI =========================== */
 
 range(3). // Ulozeni vzdalenosti, protoze implicitne neni ulozena.
-commander(aSlow).
 
 intention(scout). // Pocatecni zamer
 
@@ -19,6 +18,7 @@ intention(scout). // Pocatecni zamer
     !initUnknown;
     !lookAround;
     !initCarry;
+    !initCommander;
     !sendAchieveToAll(intentionScout). //? Ukazkove zadani prikazu
 
 // Inicializace nenavstivenych bunek
@@ -47,6 +47,10 @@ intention(scout). // Pocatecni zamer
         +carry(F,none);
     }. 
 
++!initCommander : .my_name(MN) <-
+    if (.substring(a,MN, 0)) {+commander(aSlow)};
+    if (.substring(b,MN, 0)) {+commander(bSlow)}.
+    
 /* =========================== KONEC INICIALIZACE =========================== */
 +step(X) <- +subStepDone(x).
 

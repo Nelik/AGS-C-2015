@@ -7,7 +7,6 @@
 /* =========================== POCATECNI ZNALOSTI =========================== */
 
 range(1). // Ulozeni vzdalenosti, protoze implicitne neni ulozena.
-commander(aSlow).
 
 // Agent nic nedela, ale aSlow mu na zacatku posle prikaz scout.
 intention(idle). // Pocatecni zamer
@@ -19,7 +18,7 @@ intention(idle). // Pocatecni zamer
 @init[atomic] +!init <-
     !initUnknown;
     !lookAround;
-    !initOtherFriend.
+    !initCommander.
 
 // Inicializace nenavstivenych bunek
 +!initUnknown : grid_size(GX,GY) & depot(DX,DY) <-
@@ -41,12 +40,10 @@ intention(idle). // Pocatecni zamer
 +!onDepotInit : pos(PX,PY) & depot(DX,DY) & PX == DX & PY == DY <- -onDepot(_); +onDepot(true).
 +!onDepotInit : true                                            <- -onDepot(_); +onDepot(false).
 
-+!initOtherFriend : commander(C)<-
-    for (friend(F))
-    { 
-        if (C == F) {} // V momente kdy jsem toto psal jsem nevedel jak je not equal
-        else {+otherFriend(F);}
-    }. 
++!initCommander : .my_name(MN) <-
+    if (.substring(a,MN, 0)) {+commander(aSlow)};
+    if (.substring(b,MN, 0)) {+commander(bSlow)}.
+    
 /* =========================== KONEC INICIALIZACE =========================== */
 
 +step(X) <- +subStepDone(x).
