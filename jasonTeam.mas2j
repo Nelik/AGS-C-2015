@@ -22,25 +22,9 @@ MAS miners {
 /* =============================================================================
 
  TODO:
-  - Momentalne prikazy od velitele chodi nejak pozde, protoze po kazdem unloadu
-    jde agent tak 2 3 kola scoutovat nez je poslan pro dalsi zdroj. To je 
-    zpusobeno cekanim na dokonceni prikazu vsech agentu. Tedy pokud je jeden
-    pomaly tak ten rychly odevzda zdroj a musi cekat na pomalo -> zatim scoutuje
-  - Ihned po zvednuti jednoho zdroje jej agenti odnasi do depa
-  - Po odevzdani vsech zdroji to crashne, ale to asi nebude nase chyba.
-  - Nekdy se stane, ze jenom jeden agent zvedne zdroj ze zeme.
-  - MOMENTALNE MA KAZDY AGENT STEJNE CHOVANI TZN. KOD JE 3X ROZKOPIROVANY
-    POKUD NEKDO VI JAK NASDILET CHOVANI PRES JEDEN SOUBORU SEM S TIM.
-  - Pruzkum vice agentu neni efektivni, protoze vsichni vyberou stejny cil, 
-    takze jdou na stejne misto
-  - Pri pruzkumu se nebere v uvahu dohled tj. neni treba chodit tak daleko, kdyz
-    tam stejne dohledne
-
- Kosmeticke:
-  - prejmenovat "!work"?
-  - prejmenovat "discover"? na reveal?
-  - nekdy u posledni akce pisi "+!akce : true <- !neco"; ": true" je zbytecne,
-    mozna odstranit (ale lepe to vypada pri zarovnani)
+ - proc scoutuji, kdyz maji jit do depa - pripad: nesou surovinu a neni objeveno
+   policko se stejnou surovinou, pak nekonecne scoutuji
+ - dodelat A* (zdokonalit obchazeni prekazek)
   
 ========================= PROTOKOL CILU/ZAMERU/PLANU ===========================
 
@@ -83,6 +67,13 @@ moves left			int x			Agentu zbyva x pohybu v tomto kole.
 moves per round		int x			Tento typ agenta ma x pohybu na kolo.
 pos					int x, int y	Pozice agenta je y.
 step				int x			Nachazime se v x-tem kole.
+
+-------------------------------- Nase znalosti  --------------------------------
+was_there			int x, int y	Promenna pro obchazeni prekazek, aby 
+									nechodil tam, kde byl
+carry				wood/gold		Pro commandera, aby urcil pro co dalsiho
+									ma agent jit - nemuze jit pro drevo, pokud
+									zrovna nese zlato
 --------------------------------------------------------------------------------
 Nazev				Argumenty		Cena(PB)	Vyznam
 do(up)								1			Presune agenta nahoru.
