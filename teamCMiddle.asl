@@ -64,14 +64,12 @@ intention(idle). // Pocatecni zamer
 +!doIntention : intention(pick,X,Y) <- !pick(X,Y).
 +!doIntention : intention(unload)   <- !onDepotInit; !unload.
 +!doIntention : intention(idle)     <- do(skip).
-+!doIntention : true                <- 
-    !delete_ws; 
-    !chooseNextIntention;
-	?carrying_gold(CG); ?carrying_wood(CW);
-	if (CG+CW > 0) {
-    	?commander(C); // Nekdy se stane ze agent neudela commandDone, tak to 
-		.send(C, achieve, commandDone(MN)); // pojistime tady.
-	}.
++!doIntention : carrying_gold(CG) & carrying_wood(CW) & (CG+CW > 0) <- +intention(unload).
++!doIntention : true <-
+	!delete_ws; 
+	!chooseNextIntention;
+	?commander(C); // Nekdy se stane ze agent neudela commandDone, tak to 
+	.send(C, achieve, commandDone(MN)). // pojistime tady.
 +!chooseNextIntention : unknown(X,Y) <- +intention(scout). // Kdyz nic, tak scout
 +!chooseNextIntention : true         <- +intention(idle);.print("idle").
 
