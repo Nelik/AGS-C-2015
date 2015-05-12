@@ -90,8 +90,8 @@ intention(idle). // Pocatecni zamer
 	?carrying_capacity(CC); ?carrying_gold(CG); ?carrying_wood(CW);
 	if (CC-CG-CW > 0) {
 		?commander(C); .my_name(MN);
-		if (CG > 0) {.send(C, tell, carry(gold)) }
-		if (CW > 0) {.send(C, tell, carry(wood)) }
+		if (CG > 0) {.send(C, achieve, receive_carry(gold)) }
+		if (CW > 0) {.send(C, tell, receive_carry(wood)) }
 		.send(C, achieve, commandDone(MN));
 	}
     else {+intention(unload)}.

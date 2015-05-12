@@ -67,7 +67,7 @@ intention(scout). // Pocatecni zamer
 
 // Tuhle akci agenti volaji az dokonci aktualni ukol.
 +!commandDone(Agent) <- -pendingCommand(Agent); !giveCommands.
-        
++!receive_carry(Material) <- +carry(Material).
 // Velice jednoduche davani prikazu. Agent ceka dokud vsichni agenti splnili
 // svuj ukol a pote jim zada co maji jit zvednout (verze davani prikazu hned
 // jak ukol dokonci nefunguje, protoze se muze stat ze agenty posle na ruzna
@@ -127,8 +127,8 @@ intention(scout). // Pocatecni zamer
 	?carrying_capacity(CC); ?carrying_gold(CG); ?carrying_wood(CW);
 	if (CC-CG-CW > 0) {
 		?commander(C); .my_name(MN);
-		if (CG > 0) {.send(C, tell, carry(gold)) }
-		if (CW > 0) {.send(C, tell, carry(wood)) }
+		if (CG > 0) {.send(C, achieve, receive_carry(gold)) }
+		if (CW > 0) {.send(C, tell, receive_carry(wood)) }
 		.send(C, achieve, commandDone(MN));
 	}
     else {+intention(unload)}.
