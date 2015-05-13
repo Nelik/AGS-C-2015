@@ -64,7 +64,7 @@ intention(idle). // Pocatecni zamer
 +!doIntention : intention(pick,X,Y) <- !pick(X,Y).
 +!doIntention : intention(unload)   <- !onDepotInit; !unload.
 +!doIntention : intention(idle)     <- do(skip).
-+!doIntention : carrying_gold(CG) & carrying_wood(CW) & (CG+CW > 0) <- +intention(unload).
++!doIntention : carrying_gold(CG) & carrying_wood(CW) & carrying_capacity(CC) & (CG+CW == CC) <- +intention(unload).
 +!doIntention : true <-
 	!aStarCleaning; 
 	!chooseNextIntention;
@@ -110,6 +110,7 @@ intention(idle). // Pocatecni zamer
         if (CC-CG-CW > 0) 
         {
             ?commander(C); .my_name(MN);
+			.send(C, tell, my_pos(X, Y));
             if (CG > 0) {.send(C, achieve, setCarry(gold))}
             if (CW > 0) {.send(C, achieve, setCarry(wood))}
             .send(C, achieve, commandDone(MN));

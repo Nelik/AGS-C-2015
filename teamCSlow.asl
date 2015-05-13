@@ -106,7 +106,7 @@ intention(scout). // Pocatecni zamer
 +!giveCommands : obj(wood,X,Y) & (carry(_,wood) | carry(_, none)) & not carry(_,gold) <- // Vime o nejakem dreve
 	// Jestli zname pozici agentu, najdeme drevo, ktere je nejblize
 	if (my_pos(PosX, PosY)) {
-		
+		.print("POcitam nejblizsi drevo.");
 		for (obj(wood, WX, WY)) 
 		{
 			ND = math.abs(WX-PosX) + math.abs(WY-PosY);
@@ -138,7 +138,7 @@ intention(scout). // Pocatecni zamer
 // Oba agenti nesou zlato (nebo nic) -> posilame pro dalsi zlato  
 +!giveCommands : obj(gold,X,Y) & (carry(_,gold) | carry(_, none)) & not carry(_,wood) <- // Vime o nejakem zlate
 	if (my_pos(PosX, PosY)) {
-		
+		.print("POcitam nejblizsi zlato.");
 		for (obj(gold, GX, GY)) 
 		{
 			ND = math.abs(GX-PosX) + math.abs(GY-PosY);
@@ -234,6 +234,7 @@ intention(scout). // Pocatecni zamer
         if (CC-CG-CW > 0) 
         {
             ?commander(C); .my_name(MN);
+			.send(C, tell, my_pos(X, Y));
             if (CG > 0) {.send(C, achieve, setCarry(gold))}
             if (CW > 0) {.send(C, achieve, setCarry(wood))}
             .send(C, achieve, commandDone(MN));
