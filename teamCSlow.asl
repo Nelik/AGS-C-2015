@@ -7,13 +7,8 @@
 /* =========================== POCATECNI ZNALOSTI =========================== */
 
 range(3). // Ulozeni vzdalenosti, protoze implicitne neni ulozena.
-commander(aSlow).
 
-//intention(scout). // Pocatecni zamer
-intention(goTo,4,24). //mapa2
-//intention(goTo,16,16). //mapa3
-//intention(goTo,20, 10). //mapa5
-//intention(goTo,24, 16). //mapa6
+intention(scout). // Pocatecni zamer
 
 /* ============================== INICIALIZACE ============================== */
 !init.
@@ -22,15 +17,21 @@ intention(goTo,4,24). //mapa2
 @init[atomic] +!init <-
     !initUnknown;
     !lookAround;
+    !initCarry;
+    !initCommander;
     !sendAchieveToAll(intentionScout). //? Ukazkove zadani prikazu
 
 // Inicializace nenavstivenych bunek
 +!initUnknown : grid_size(GX,GY) & depot(DX,DY) <-
     for (.range(X, 0, GX - 1))
     {
-        for (.range(Y, 0, GY - 1))
+		for (.range(Y, 0, GY - 1))
         {
             +unknown(X,Y);
+			+obj(obs, -1, Y);
+			+obj(obs, GX, Y);
+			+obj(obs, X, -1);
+			+obj(obs, X, GY);			
         }
     }.
 
@@ -40,6 +41,14 @@ intention(goTo,4,24). //mapa2
 +!onDepotInit : pos(PX,PY) & depot(DX,DY) & PX == DX & PY == DY <- -onDepot(_); +onDepot(true).
 +!onDepotInit : true                                            <- -onDepot(_); +onDepot(false).
 
++!initCarry <- 
+    for (friend(F))
+    { 
+        +carry(F,none);
+    }. 
+
++!initCommander <- .my_name(MN); +commander(MN).
+    
 /* =========================== KONEC INICIALIZACE =========================== */
 +step(X) <- +subStepDone(x).
 
@@ -57,36 +66,135 @@ intention(goTo,4,24). //mapa2
 +!doIntention : intention(pick,X,Y) <- !pick(X,Y).
 +!doIntention : intention(unload)   <- !onDepotInit; !unload.
 +!doIntention : intention(idle)     <- do(skip).
-+!doIntention : true                <- !chooseNextIntention.
++!doIntention : true                <- !aStarCleaning; !chooseNextIntention.
 
 +!chooseNextIntention : unknown(X,Y) <- +intention(scout). // Kdyz nic, tak scout
-+!chooseNextIntention : true         <- +intention(idle);.print("idle").
++!chooseNextIntention : true         <-	+intention(idle);.print("idle").
 
 
 /* ============================= DAVANI PRIKAZU ============================= */
 
++!clearCarry[source(SourceAgent)] <- 
+    .abolish(carry(SourceAgent,_));
+    +carry(SourceAgent, none).
+  
+    
++!setCarry(Obj)[source(SourceAgent)] <-
+    -carry(SourceAgent, _);
+    +carry(SourceAgent, Obj).
+       
+
 // Tuhle akci agenti volaji az dokonci aktualni ukol.
-+!commandDone(Agent) <- -pendingCommand(Agent).
++!commandDone(Agent) <- -pendingCommand(Agent); !giveCommands.
         
 // Velice jednoduche davani prikazu. Agent ceka dokud vsichni agenti splnili
 // svuj ukol a pote jim zada co maji jit zvednout (verze davani prikazu hned
 // jak ukol dokonci nefunguje, protoze se muze stat ze agenty posle na ruzna
 // mista).
 +!giveCommands : pendingCommand(_). // Cekame na dokonceni vsech prikazu
-+!giveCommands : obj(wood,X,Y) <- // Vime o nejakem dreve
-    !sendAchieveToAll(intentionPick(X,Y));
+
+// Oba agenti z nejakeho duvodu nesou ruzne zdroje, takze je treba je vylozit
++!giveCommands : carry(_, wood) & carry(_,gold) <-
+  	!sendAchieveToAll(intentionUnload);
+	.abolish(my_pos(_, _));
+	for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
+    { 
+        +pendingCommand(F)
+    }. 
+    
+// Oba agenti nesou drevo (nebo nic) -> posilame pro dalsi drevo    
++!giveCommands : obj(wood,X,Y) & (carry(_,wood) | carry(_, none)) & not carry(_,gold) <- // Vime o nejakem dreve
+	// Jestli zname pozici agentu, najdeme drevo, ktere je nejblize
+	if (my_pos(PosX, PosY)) {
+		
+		for (obj(wood, WX, WY)) 
+		{
+			ND = math.abs(WX-PosX) + math.abs(WY-PosY);
+			if (distance(D, TarX, TarY)) 
+			{			
+				if (D > ND)
+				{
+					-distance(D, TarX, TarY); +distance(ND, WX, WY)
+				}
+			}
+			else 
+			{					
+				+distance(ND, WX, WY)
+			}
+		}
+	}
+	if (my_pos(PosX, PosY)) {
+		?distance(D, TarX, TarY);
+		!sendAchieveToAll(intentionPick(TarX,TarY));
+	}
+	else {!sendAchieveToAll(intentionPick(X,Y))}
     for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
     { 
         +pendingCommand(F); 
     } 
-    !giveCommands.
-+!giveCommands : obj(gold,X,Y) <- // Vime o nejakem zlate
-    !sendAchieveToAll(intentionPick(X,Y));
+	-distance(_, _, _);
+	.abolish(my_pos(_, _)).
+    
+// Oba agenti nesou zlato (nebo nic) -> posilame pro dalsi zlato  
++!giveCommands : obj(gold,X,Y) & (carry(_,gold) | carry(_, none)) & not carry(_,wood) <- // Vime o nejakem zlate
+	if (my_pos(PosX, PosY)) {
+		
+		for (obj(gold, GX, GY)) 
+		{
+			ND = math.abs(GX-PosX) + math.abs(GY-PosY);
+			if (distance(D, TarX, TarY)) 
+			{			
+				if (D > ND)
+				{
+					-distance(D, TarX, TarY); +distance(ND, GX, GY)
+				}
+			}
+			else 
+			{
+				+distance(ND, GX, GY)
+			}
+		}
+	}
+	if (my_pos(PosX, PosY)) {
+		?distance(D, TarX, TarY);
+		!sendAchieveToAll(intentionPick(TarX,TarY));
+	}
+	else {!sendAchieveToAll(intentionPick(X,Y))}
     for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
     { 
         +pendingCommand(F); 
     } 
-    !giveCommands.
+	-distance(_, _, _);
+	.abolish(my_pos(_, _)).
+    
+
+// Mame info jenom o zlate a agenti nesou jen drevo
++!giveCommands : obj(gold,X,Y) & carry(_,wood) & not carry(_,gold) <-
+	!sendAchieveToAll(intentionUnload);
+	.abolish(my_pos(_, _));
+	for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
+    { 
+        +pendingCommand(F)
+    }.
+     
+// Mame info jenom o dreve a agenti nesou jen zlato
++!giveCommands : obj(wood,X,Y) & carry(_,gold) & not carry(_,wood) <-
+	!sendAchieveToAll(intentionUnload);
+	.abolish(my_pos(_, _));
+	for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
+    { 
+        +pendingCommand(F)
+    }.
+ 
+// Nemame info o zadnem droji a agenti neco nesou
++!giveCommands : carry(_,gold) | carry(_,wood) <-
+	!sendAchieveToAll(intentionUnload);
+	.abolish(my_pos(_, _));
+	for (friend(F)) // Ulozime nedokoncene prikazy pro vsechny agenty
+    { 
+        +pendingCommand(F)
+    }.
+
 +!giveCommands.
 
 /* ========================== IMPLEMENTACE PRIKAZU ========================== */
@@ -105,23 +213,47 @@ intention(goTo,4,24). //mapa2
     .nth(RandIndex, Unknowns, unknown(X,Y)).         // Nacteni bunky ze seznamu
 
 // Prikaz k presunu na pozici [X,Y]
-+!goTo(X,Y) : pos(X,Y) <- -intention(goTo,X,Y). // Uz jsme na miste
++!goTo(X,Y) : pos(X,Y) <- !aStarCleaning; -intention(goTo,X,Y). // Uz jsme na miste
 +!goTo(X,Y) : true     <- !moveTo(X,Y).         // Porad tam nejsme
 
 // Zvednuti zdroje ze zeme (agent musi mit plny pocet pohybovych bodu).
 +!pick(X,Y) : pos(X,Y) & ally(X,Y) & moves_left(ML) & moves_per_round(ML) <- 
-    do(pick); 
-    -intention(pick,X,Y); 
-    +intention(unload).
-+!pick(X,Y) : pos(X,Y) <- do(skip). // Cekani na jineho agenta
+   ?commander(C);
+   .send(C, askOne, pos(_,_), pos(OFX,OFY));
+    
+   if (OFX == X & OFY == Y)
+   {
+   		do(skip)
+   }
+   else
+   {
+        !aStarCleaning;
+        do(pick);
+        -intention(pick,X,Y);
+        ?carrying_capacity(CC); ?carrying_gold(CG); ?carrying_wood(CW);
+        if (CC-CG-CW > 0) 
+        {
+            ?commander(C); .my_name(MN);
+            if (CG > 0) {.send(C, achieve, setCarry(gold))}
+            if (CW > 0) {.send(C, achieve, setCarry(wood))}
+            .send(C, achieve, commandDone(MN));
+        }
+        else 
+        {
+            +intention(unload)
+        };
+   }.
++!pick(X,Y) : pos(X,Y) <- do(skip). // Cekame na druheho agenta
 +!pick(X,Y) : true     <- !moveTo(X,Y).
 
 // Vyprazdneni agenta (agent musi mit plny pocet pohybovych bodu).
 +!unload : onDepot(true) & moves_left(ML) & moves_per_round(ML) & commander(C) & .my_name(MN) <- 
     do(drop); 
+	!aStarCleaning;
     -intention(unload);
+    .send(C, achieve, clearCarry);
     .send(C, achieve, commandDone(MN)).
-+!unload : onDepot(true)  <- do(skip).
++!unload : onDepot(true)  <- !aStarCleaning; do(skip).
 +!unload : onDepot(false) <- !moveToDepot.
 
 /* ============================ PRIJMUTI PRIKAZU ============================ */
@@ -134,7 +266,7 @@ intention(goTo,4,24). //mapa2
 
 // Odstraneni aktualniho zameru
 // !!! Pokud pribudou nove zamery s vetsi aritou je treba dopsat !!!
-+!clearIntention <- -intention(_); -intention(_,_); -intention(_,_,_).
++!clearIntention <- !aStarCleaning; -intention(_); -intention(_,_); -intention(_,_,_).
 
 /* ===================== PROHLEDAVANI VIDITELNEHO OKOLI ===================== */
 
@@ -158,11 +290,12 @@ intention(goTo,4,24). //mapa2
 // Aktualizace znalosti o prekazkach
 +!checkObstacle(X,Y) : obstacle(X,Y) & not obj(obs,X,Y) & intention(_, X, Y) <- // Nova prekazka
     +obj(obs,X,Y); 
-	!chooseNextIntention;
-    !sendObjectInfo(obs,X,Y,add). 
+	!aStarCleaning;
+	-intention(_, X, Y);
+    !sendObjectInfo(obs,X,Y,add).
 +!checkObstacle(X,Y) : obstacle(X,Y) & not obj(obs,X,Y) <- // Nova prekazka
     +obj(obs,X,Y); 
-    !sendObjectInfo(obs,X,Y,add). 
+    !sendObjectInfo(obs,X,Y,add).
 +!checkObstacle(X,Y). // Prekazka tady neni
 
 // Aktualizace znalosti o zlate
@@ -171,7 +304,10 @@ intention(goTo,4,24). //mapa2
     !sendObjectInfo(gold,X,Y,add). 
 +!checkGold(X,Y) : not gold(X,Y) & obj(gold,X,Y) <- // Zlato nekdo vzal
     -obj(gold,X,Y); 
-    !sendObjectInfo(gold,X,Y,remove). 
+    !sendObjectInfo(gold,X,Y,remove);
+	// Byl to nas cil - tak cil splnen, zadame o novy
+	if(intention(pick, X, Y)){!aStarCleaning; -intention(pick,X,Y); !aStarCleaning; 
+	?commander(C); .my_name(MN); .send(C, achieve, commandDone(MN))}. 
 +!checkGold(X,Y). // Zlato tady neni
 
 // Aktualizace znalosti o dreve
@@ -180,9 +316,11 @@ intention(goTo,4,24). //mapa2
     !sendObjectInfo(wood,X,Y,add).
 +!checkWood(X,Y) : not wood(X,Y) & obj(wood,X,Y) <- // Drevo nekdo vzal
     -obj(wood,X,Y); 
-    !sendObjectInfo(wood,X,Y,remove). 
+    !sendObjectInfo(wood,X,Y,remove);
+	// Byl to nas cil - tak cil splnen, zadame o novy
+	if(intention(pick, X, Y)){!aStarCleaning; -intention(pick,X,Y); !aStarCleaning;
+	?commander(C); .my_name(MN); .send(C, achieve, commandDone(MN))}. 
 +!checkWood(X,Y). // Drevo taky neni
-
 
 /* ============= AKCE PRO ODESLANI/PRIJMUNI INFOMACI O PROSTORU ============= */
 
@@ -190,8 +328,15 @@ intention(goTo,4,24). //mapa2
 +!sendAchieveToAll(Action) <-
     for (friend(Agent)) 
     {
-        //.send(Agent, achieve, Action);
+        .send(Agent, achieve, Action);
     }.
+	
++!sendToAll(Knowledge) <-
+    for (friend(Agent)) 
+    {
+        .send(Agent, tell, Knowledge);
+    }.
+	
 
 // Temer zbytecne akce, rovnou by slo psat sendAchieveToAll
 +!sendDiscoverInfo(X,Y) <- !sendAchieveToAll(recvDiscoverInfo(X,Y)).
@@ -201,8 +346,11 @@ intention(goTo,4,24). //mapa2
 +!recvDiscoverInfo(X,Y) <- -unknown(X,Y).
 
 // Reakce na objeveni zdroje
-+!recvObjectInfo(O,X,Y,AddRemove) : AddRemove == add    <- +obj(O,X,Y).
-+!recvObjectInfo(O,X,Y,AddRemove) : AddRemove == remove <- -obj(O,X,Y).
++!recvObjectInfo(O,X,Y,AddRemove) : AddRemove == add    <- +obj(O,X,Y);
+	if(O == obs & intention(goTo, X, Y)) {!aStarCleaning; -intention(_, X, Y)}. 
++!recvObjectInfo(O,X,Y,AddRemove) : AddRemove == remove <- -obj(O,X,Y);
+	if(intention(pick, X, Y)){!aStarCleaning; -intention(pick,X,Y); !aStarCleaning;
+	?commander(C); .my_name(MN); .send(C, achieve, commandDone(MN))}.	
 
 /* ================================= HELPERS ================================ */	
 +!getNodeValuesHelper(Node,X,Y,Px,Py,G,F) <-
@@ -216,6 +364,15 @@ intention(goTo,4,24). //mapa2
 +!getCurrentNodeHelper(CurrentNode): currentNode(Cnx, Cny, Cnpx, Cnpy, Cng, Cnf) <-
 	CurrentNode = [Cnx, Cny, Cnpx, Cnpy, Cng, Cnf].
 	
++!aStarCleaning <-
+	.abolish(openSet(_,_,_,_,_,_));
+	.abolish(closedSet(_,_,_,_,_,_));
+	-lowestFn(_); -currentNodePosition(_,_); -currentNode(_,_,_,_,_,_);
+	-actualX(_);
+	-actualY(_);
+	-continue(_);
+	-aStarGoal(_,_);
+	.
 /* ================================= POHYB ================================== */
 
 +!moveToDepot : depot(DX, DY) <- !moveTo(DX,DY).
@@ -287,16 +444,6 @@ intention(goTo,4,24). //mapa2
 	}
 	.findall([X,Y,Px,Py,0,0],neighbor(X,Y,Px,Py), Neighbors);
 	.abolish(neighbor(_,_,_,_)).
-
-+!aStarCleaning <-
-	.abolish(openSet(_,_,_,_,_,_));
-	.abolish(closedSet(_,_,_,_,_,_));
-	-lowestFn(_); -currentNodePosition(_,_); -currentNode(_,_,_,_,_,_);
-	-actualX(_);
-	-actualY(_);
-	-continue(_);
-	-aStarGoal(_,_);
-	.
 
 +!aStar(Sx, Sy, Gx, Gy) <-
 	!aStarInit(Sx, Sy);
@@ -422,7 +569,6 @@ intention(goTo,4,24). //mapa2
 		!intentionScout;
 	}
 	.
-
 
 // Pohyb na [X,Y] bunku
 +!moveTo(TarX,TarY) : pos(PosX,PosY) <- +aStarGoal(TarX, TarY); !aStar(PosX,PosY,TarX,TarY).
