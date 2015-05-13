@@ -288,7 +288,16 @@ intention(goTo,4,24). //mapa2
 	.findall([X,Y,Px,Py,0,0],neighbor(X,Y,Px,Py), Neighbors);
 	.abolish(neighbor(_,_,_,_)).
 
-@aStar[breakpoint]
++!aStarCleaning <-
+	.abolish(openSet(_,_,_,_,_,_));
+	.abolish(closedSet(_,_,_,_,_,_));
+	-lowestFn(_); -currentNodePosition(_,_); -currentNode(_,_,_,_,_,_);
+	-actualX(_);
+	-actualY(_);
+	-continue(_);
+	-aStarGoal(_,_);
+	.
+
 +!aStar(Sx, Sy, Gx, Gy) <-
 	!aStarInit(Sx, Sy);
 	// while lowest rank in OPEN is not the GOAL
@@ -382,13 +391,7 @@ intention(goTo,4,24). //mapa2
 				+continue(0);
 			}
 		}
-		.abolish(openSet(_,_,_,_,_,_));
-		.abolish(closedSet(_,_,_,_,_,_));
-		-lowestFn(_); -currentNodePosition(_,_); -currentNode(_,_,_,_,_,_);
-		-actualX(_);
-		-actualY(_);
-		-continue(_);
-		-aStarGoal(_,_);
+		!aStarCleaning;
 		.findall([X,Y], path(X,Y), Path);
 		.println("Path: ", Path);
 		.abolish(path(_,_));
@@ -412,13 +415,8 @@ intention(goTo,4,24). //mapa2
 	else
 	{
 		// if goal is an obstacle
+		!aStarCleaning;
 		.abolish(neighbor(_,_,_,_));
-		.abolish(openSet(_,_,_,_,_,_));
-		.abolish(closedSet(_,_,_,_,_,_));
-		-lowestFn(_); -currentNodePosition(_,_); -currentNode(_,_,_,_,_,_);
-		-actualX(_);
-		-actualY(_);
-		-continue(_);
 		-subStepDone(_);
 		!clearIntention;
 		!intentionScout;
