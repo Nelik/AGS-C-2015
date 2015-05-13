@@ -384,7 +384,6 @@ intention(idle). // Pocatecni zamer
 		-currentNodePosition(_,_); -currentNode(_,_,_,_,_,_);
 	}
 	// reconstruct reverse path from goal to start by following parent pointers
-	.println("Now I should reconstruct my path...");
 	+continue(1);
 	if (aStarGoal(TarX, TarY))
 	{
@@ -416,7 +415,6 @@ intention(idle). // Pocatecni zamer
 		}
 		!aStarCleaning;
 		.findall([X,Y], path(X,Y), Path);
-		.println("Path: ", Path);
 		.abolish(path(_,_));
 		.nth(0, Path, PathPoint);
 		.nth(0, PathPoint, NewX);
@@ -453,3 +451,4 @@ intention(idle). // Pocatecni zamer
 +!moveTo(PosX,PosY,TarX,TarY) : PosY < TarY <- do(down); !onDepotInit.
 +!moveTo(PosX,PosY,TarX,TarY) : PosY > TarY <- do(up); !onDepotInit.
 +!moveTo(PosX,PosY,TarX,TarY) <- !onDepotInit.
+
