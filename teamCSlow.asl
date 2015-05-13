@@ -156,6 +156,10 @@ intention(goTo,4,24). //mapa2
 +!checkUnknown(X,Y). // O prazdnem miste uz vime
 
 // Aktualizace znalosti o prekazkach
++!checkObstacle(X,Y) : obstacle(X,Y) & not obj(obs,X,Y) & intention(_, X, Y) <- // Nova prekazka
+    +obj(obs,X,Y); 
+	!chooseNextIntention;
+    !sendObjectInfo(obs,X,Y,add). 
 +!checkObstacle(X,Y) : obstacle(X,Y) & not obj(obs,X,Y) <- // Nova prekazka
     +obj(obs,X,Y); 
     !sendObjectInfo(obs,X,Y,add). 
